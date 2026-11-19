@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     scraper_concurrency: int = 2
     max_cells_per_job: int = 200
     max_places_per_job: int = 5000
+    geocoder_user_agent: str = "gapscout/1.0 (you@example.com)"
 
     # Comma-separated list, kept as a string so pydantic-settings does not try
     # to JSON-decode a plain env var.

@@ -7,7 +7,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 1: Repo scaffold and dev environment
 - [x] Prompt 2: Database schema and migrations
 - [x] Prompt 3: Data source layer and scraper integration
-- [ ] Prompt 4: Grid planner and job orchestration
+- [x] Prompt 4: Grid planner and job orchestration
 - [ ] Prompt 5: Cleaning, normalisation and deduplication
 - [ ] Prompt 6: Gap analysis engine
 - [ ] Prompt 7: Backend API
@@ -28,6 +28,18 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-19 - Prompt 4: Grid planner and job orchestration
+- Implemented Nominatim geocoding in app/services/geocoding.py: maps city/area names to bounding boxes with custom User-Agent and in-memory caching.
+- Implemented grid planner in app/services/grid.py: divides arbitrary bounding boxes into overlapping search cells with center coordinates, calculates runtime/cost estimates, and enforces workspace safety caps (MAX_CELLS_PER_JOB).
+- Implemented job lifecycle and orchestration in app/services/jobs.py: create_search_job (persisting SearchJob and child SearchJobCell records with polygon geometries), pause_search_job, cancel_search_job, resume_search_job, and get_job_progress.
+- Implemented Celery tasks in app/tasks.py: scrape_cell_task (cell centroid calculation via PostGIS, places cap check, status tracking, exponential backoff retries, and post-scrape pipeline trigger) and dispatch_job_cells with rate pacing.
+- Implemented places deduplication across overlapping cells via upsert_places.
+- Added comprehensive test suites:
+  - tests/test_grid.py: mathematical full coverage, positive overlap, bounds check, runtime estimation, cap enforcement.
+  - tests/test_geocoding.py: caching, parsing, not-found error handling.
+  - tests/test_orchestration.py: end-to-end 3x3km grid execution over 16 cells with live progress tracking, pause/resume, cancellation, error recording, and deduplication of central overlapping places (17 total places from 16 cells).
+- Verified: 36 passed in 3.93s; ruff check/format and web lint/format/typecheck all green.
 
 ### 2026-11-19 - Prompt 3: Data source layer and scraper integration
 - Researched gosom/google-maps-scraper REST API (/static/spec/spec.yaml) and CLI flags; documented in /docs/scraper-notes.md (job creation POST /api/v1/jobs, polling GET /api/v1/jobs/{id}, CSV download GET /api/v1/jobs/{id}/download, email/extra-reviews/geo/depth controls, CSV columns).

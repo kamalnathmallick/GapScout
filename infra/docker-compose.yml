@@ -144,6 +144,7 @@ services:
 
   scraper:
     image: gosom/google-maps-scraper:latest
+    shm_size: '2gb'
     command: ["-web", "-addr", ":8080", "-data-folder", "/gmapsdata"]
     environment:
       DISABLE_TELEMETRY: "1"

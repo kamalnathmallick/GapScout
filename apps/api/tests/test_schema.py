@@ -19,7 +19,15 @@ from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
 
 from app.config import get_settings
-from app.models import DoNotContact, Lead, ModelVersion, Place, Workspace
+from app.models import (
+    DoNotContact,
+    Lead,
+    ModelVersion,
+    Place,
+    SearchJob,
+    SearchJobCell,
+    Workspace,
+)
 
 API_ROOT = Path(__file__).resolve().parents[1]
 ALEMBIC_INI = API_ROOT / "alembic.ini"
@@ -37,6 +45,7 @@ EXPECTED_TABLES = {
     "outreach_events",
     "place_reviews",
     "places",
+    "search_job_cells",
     "search_jobs",
     "users",
     "workspaces",
@@ -278,3 +287,57 @@ def test_lead_and_place_rows_carry_workspace_id(db_engine: Engine) -> None:
     assert Lead.__table__.c.workspace_id.nullable is False
     assert Place.__table__.c.workspace_id.nullable is False
     assert Workspace.__table__.c.name.nullable is False
+
+
+def test_search_job_cells_constraints_and_cascade(db_engine: Engine) -> None:
+    workspace_id = _new_workspace(db_engine)
+    with db_engine.begin() as connection:
+        job_id = connection.execute(
+            SearchJob.__table__.insert()
+            .values(workspace_id=workspace_id, category="cafe")
+            .returning(SearchJob.id)
+        ).scalar_one()
+
+        polygon_wkt = (
+            "SRID=4326;POLYGON((77.63 12.96, 77.65 12.96, 77.65 12.98, 77.63 12.98, 77.63 12.96))"
+        )
+        connection.execute(
+            SearchJobCell.__table__.insert().values(
+                search_job_id=job_id,
+                cell_index=0,
+                bbox=func.ST_GeomFromEWKT(polygon_wkt),
+                status="pending",
+            )
+        )
+
+    # Unique constraint on (search_job_id, cell_index)
+    with pytest.raises(IntegrityError), db_engine.begin() as connection:
+        connection.execute(
+            SearchJobCell.__table__.insert().values(
+                search_job_id=job_id,
+                cell_index=0,
+                bbox=func.ST_GeomFromEWKT(polygon_wkt),
+                status="pending",
+            )
+        )
+
+    # Status CHECK constraint rejects unknown values
+    with pytest.raises(IntegrityError), db_engine.begin() as connection:
+        connection.execute(
+            SearchJobCell.__table__.insert().values(
+                search_job_id=job_id,
+                cell_index=1,
+                bbox=func.ST_GeomFromEWKT(polygon_wkt),
+                status="invalid_status",
+            )
+        )
+
+    # Deleting search job cascades to search_job_cells
+    with db_engine.begin() as connection:
+        connection.execute(SearchJob.__table__.delete().where(SearchJob.id == job_id))
+        count = connection.execute(
+            select(func.count())
+            .select_from(SearchJobCell)
+            .where(SearchJobCell.search_job_id == job_id)
+        ).scalar_one()
+        assert count == 0

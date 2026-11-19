@@ -30,7 +30,7 @@ You work in a loop: read state, do the next prompt, verify it for real, commit, 
 For each prompt in the order of the chosen BUILD_PATH:
 
 1. Read PROGRESS.md and AGENTS.md. Pick the first unticked prompt that is on the chosen BUILD_PATH.
-2. Re-read that prompt's section in Section 8. Write a plan of at most 10 lines at the top of the Log in PROGRESS.md.
+2. Re-read that prompt's section in Section 9. Write a plan of at most 10 lines at the top of the Log in PROGRESS.md.
 3. Implement in small steps. Write tests alongside the code.
 4. Verify for real: run lint, type checks and tests, and actually run the thing to prove the "Done when" line is true (start the services, call the endpoint, load the page). Paste the key command output into the Log entry.
 5. If something fails, diagnose the root cause and fix it. You have 3 repair attempts per distinct problem. After that, record it under Blockers in PROGRESS.md and stop. Never delete, skip or weaken a test to make it pass, and never fake output.
@@ -148,6 +148,7 @@ ENGINEERING RULES:
 7. When you make a design decision, explain the trade-off in two or three sentences and record important ones in /docs/adr.
 8. If a requirement is ambiguous, ask me one concise question instead of guessing.
 9. Before using any third-party library or API (the scraper's flags and endpoints, deck.gl, h3, the Anthropic SDK), check its current documentation or README instead of relying on memory.
+10. Whenever a later prompt adds new database state (e.g., Offer Profiles, workspace caps, LLM cost logs), create a new Alembic migration rather than editing Prompt 2's initial migration.
 
 SAFETY AND COMPLIANCE RULES (non-negotiable):
 
@@ -167,7 +168,7 @@ Each prompt is a complete task. Do them in order. "Done when" is the acceptance 
 Set up the GapScout monorepo and a one-command local environment.
 
 1. Create the folder layout from the brief (/apps/api, /apps/web, /infra, /docs, /scripts, /tests-e2e) and initialise git with a sensible .gitignore.
-2. Write infra/docker-compose.yml with these services: db (postgis/postgis:16), redis, api (FastAPI with hot reload), worker (Celery), beat (Celery beat), web (Next.js dev server) and scraper (gosom/google-maps-scraper in web-server mode; read its README for the image name, port and flags). Add health checks and named volumes.
+2. Write infra/docker-compose.yml with these services: db (postgis/postgis:16), redis, api (FastAPI with hot reload), worker (Celery), beat (Celery beat), web (Next.js dev server) and scraper (gosom/google-maps-scraper in web-server mode; read its README for the image name, port and flags; add shm_size: '2gb' or --disable-dev-shm-usage so headless Chromium doesn't crash in Docker). Add health checks and named volumes.
 3. Create a minimal FastAPI app with GET /health that checks database and Redis connectivity, a minimal Celery app with one ping task, and a Next.js page that calls /health and shows the result.
 4. Add a Makefile with: make up, make down, make logs, make test, make lint, make migrate, make seed.
 5. Add .env.example listing every variable with comments, a ruff + pre-commit config, ESLint + Prettier, and a README with setup steps.
@@ -175,7 +176,7 @@ Set up the GapScout monorepo and a one-command local environment.
 
 Do not build features yet. Finish by showing me the output of make up and a working /health response.
 
-**Done when:** make up starts every service; /health reports db and redis as ok; the web page shows it; CI is green.
+**Done when:** make up starts every service; /health reports db and redis as ok; the web page shows it; CI workflow file is valid and its lint/test commands pass locally.
 
 **Commit message:** `chore: scaffold monorepo and dev environment`
 
@@ -191,6 +192,7 @@ Tables (every row of user data carries a workspace_id):
 
 - users and workspaces
 - search_jobs: workspace_id, category, area_name, bbox geometry, status, params JSON, counts, timestamps, error
+- search_job_cells: id, search_job_id, cell_index, bbox geometry, status, attempts, error, timestamps (to support pause/cancel/resume in Prompt 4)
 - places: workspace_id, provider, provider_place_id, name, category, normalized_category, address, phone_e164, website, website_domain, email, rating, review_count, price_level, location geography(Point,4326), h3_r8, opening_hours JSON, is_closed, raw JSON, first_seen_at, last_seen_at. Unique on (workspace_id, provider, provider_place_id).
 - place_reviews: place_id, rating, text, published_at, owner_replied
 - hex_metrics: workspace_id, search_job_id, category, h3_index, resolution, supply_count, density_per_km2, avg_rating, avg_review_count, demand_proxy, opportunity_score, label, explanation JSON, computed_at
@@ -268,7 +270,7 @@ Create a data-cleaning pipeline that runs after each job.
 - Normalise categories into a controlled taxonomy (for example cafe, restaurant, gym, salon, dental clinic, coaching centre) using a mapping table plus fuzzy matching. Keep the raw category.
 - Normalise phone numbers to E.164 with +91 as the default region (use the phonenumbers library). Validate and drop invalid numbers.
 - Extract website_domain, strip tracking parameters, and flag social-media-only pages (Instagram, Facebook) as 'no real website'.
-- Validate emails (syntax plus domain MX check with timeouts) and mark generic mailboxes (info@, contact@) separately from named ones.
+- Validate emails (syntax plus domain MX check with timeouts, caching results by domain and running with bounded concurrency such as asyncio or a small thread pool so 5,000-place jobs don't bottleneck) and mark generic mailboxes (info@, contact@) separately from named ones.
 - Detect likely duplicates by fuzzy name match plus distance under 50 m. Merge or flag them.
 - Flag permanently closed businesses and exclude them from supply counts.
 - Compute h3_r8 for every place.
@@ -288,7 +290,7 @@ Write unit tests for every normaliser using at least 10 messy real-world example
 
 Build the market-gap engine. It must be explainable, not a black box.
 
-Input: the places of a workspace, a category, and a resolution (default H3 resolution 8; allow 7 to 9). Output: one hex_metrics row per hex covering the search area.
+Input: the places of a workspace, a category, and a resolution (default H3 resolution 8; allow 7 to 9). Output: one hex_metrics row per hex covering the search area. Hex aggregations should run in SQL/PostGIS or via bulk-fetched tuples/NumPy rather than iterating over SQLAlchemy ORM objects, so Prompt 18's 50,000-place / <30s target is achievable.
 
 Per hex compute: supply_count (open businesses of the category), density_per_km2, avg_rating, avg_review_count, quality_gap (how far the average rating sits below the area median) and nearest_competitor_m.
 
@@ -316,7 +318,7 @@ Expose everything through a versioned FastAPI API (/api/v1) with OpenAPI docs.
 
 Endpoints:
 
-- auth: register, login, refresh, me
+- auth: register, login, refresh, me (implementing Argon2 password hashing, short-lived access tokens, refresh-token rotation, and workspace isolation)
 - jobs: POST /jobs (area + category + cell size; dry_run=true returns the cost estimate), GET /jobs, GET /jobs/{id} (progress), POST /jobs/{id}/cancel, POST /jobs/{id}/resume
 - places: GET /places (filters: category, bbox, has_website, min_rating, hex, text search; pagination)
 - gap: GET /gap/{job_id}/hexes (GeoJSON or H3 list), GET /gap/{job_id}/summary
@@ -433,7 +435,7 @@ Build the outreach workflow, designed so a human always sends the message.
 
 - Leads page: sortable table with score, label, status, category, area and a score-breakdown popover. Quick filters (status, score range, has email, in underserved hex) and bulk actions (shortlist, reject).
 - Lead detail drawer: business facts, map pin, review themes, website audit, score breakdown, notes and a status timeline.
-- Draft generator: choose the channel (email or a short chat message), the tone and the offer. The model uses the pitch angle and the Offer Profile. A draft must be short, mention one real finding about the business, contain no invented facts, and end with a one-line opt-out such as 'Reply STOP and I will not contact you again.'
+- Draft generator: choose the channel (email or a short chat message), the tone and the offer. The model uses the pitch angle and the Offer Profile. A draft must be short, mention one real finding about the business, contain no invented facts, and end with a one-line opt-out such as 'Reply STOP and I will not contact you again.' If Prompt 11 was skipped (e.g., `hackathon` build path), draft outreach messages from lead facts and the Offer Profile alone without requiring review themes or website audits.
 - The user can edit the draft, copy it, or open it through mailto: or a wa.me link. The app never sends anything itself. A 'Mark as contacted' button records the event.
 - Do-not-contact: adding a lead or domain to the DNC list immediately hides it from all outreach views and blocks drafts.
 - Status pipeline: new, shortlisted, contacted, replied, meeting, converted, rejected, do_not_contact, with one-click changes and a full event history.
@@ -513,8 +515,8 @@ Build the transparency layer for the model.
 
 Harden accounts and multi-tenancy.
 
-- Email and password auth with Argon2 hashing, short-lived access tokens, refresh-token rotation, an email verification stub and a password reset flow (log the link in development).
-- Workspace isolation at the database layer using row-level security policies or a mandatory query filter, proven by tests.
+- Covers email verification stub and password reset flow (log the link in development).
+- DB-layer isolation hardening (e.g., row-level security / RLS policies or verified query enforcement), proven by tests.
 - Settings pages: Offer Profile, scoring-weights editor (with reset to defaults), per-workspace caps (cells, places, daily LLM cost), data retention days and an API usage page.
 - Account data tools: a full JSON and CSV export, and an irreversible delete-my-data action with confirmation.
 
@@ -641,8 +643,8 @@ Prompt 1 must put every variable below into .env.example with a short comment. R
 | MAX_CELLS_PER_JOB | Hard cap on grid cells | 200 |
 | MAX_PLACES_PER_JOB | Hard cap on places per job | 5000 |
 | ANTHROPIC_API_KEY | LLM enrichment and drafts | (from console.anthropic.com) |
-| LLM_MODEL_FAST | Model for bulk enrichment | claude-haiku-5-5 |
-| LLM_MODEL_QUALITY | Model for outreach drafts | claude-sonnet-5-5 |
+| LLM_MODEL_FAST | Model for bulk enrichment | claude-haiku-<latest> |
+| LLM_MODEL_QUALITY | Model for outreach drafts | claude-sonnet-<latest> |
 | LLM_DAILY_COST_CAP_USD | Daily spend limit per workspace | 2 |
 | GEOCODER_USER_AGENT | Identifies your app to Nominatim | gapscout/1.0 (you@example.com) |
 | MAP_TILE_STYLE_URL | MapLibre style from a free tile provider | (provider style URL) |

@@ -58,6 +58,13 @@ JOB_STATUSES = (
     "failed",
     "completed",
 )
+CELL_STATUSES = (
+    "pending",
+    "running",
+    "completed",
+    "failed",
+    "cancelled",
+)
 HEX_LABELS = ("oversaturated", "balanced", "underserved", "insufficient_data")
 ENRICHMENT_KINDS = ("website_audit", "review_themes", "pitch_angle")
 
@@ -132,6 +139,10 @@ class SearchJob(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    cells: Mapped[list["SearchJobCell"]] = relationship(
+        back_populates="job", cascade="all, delete-orphan", passive_deletes=True
+    )
+
     __table_args__ = (
         CheckConstraint(
             "status IN ('pending', 'planning', 'running', 'paused', 'cancelling', "
@@ -139,6 +150,37 @@ class SearchJob(Base):
             name="status_allowed",
         ),
         Index("ix_search_jobs_workspace_status", "workspace_id", "status"),
+    )
+
+
+class SearchJobCell(Base):
+    __tablename__ = "search_job_cells"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    search_job_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("search_jobs.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    cell_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    bbox: Mapped[Any] = mapped_column(Geometry(geometry_type="POLYGON", srid=4326), nullable=False)
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default=text("'pending'")
+    )
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    job: Mapped["SearchJob"] = relationship(back_populates="cells")
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'running', 'completed', 'failed', 'cancelled')",
+            name="cell_status_allowed",
+        ),
+        UniqueConstraint("search_job_id", "cell_index", name="uq_search_job_cells_job_index"),
+        Index("ix_search_job_cells_job_status", "search_job_id", "status"),
     )
 
 

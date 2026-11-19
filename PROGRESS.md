@@ -29,6 +29,21 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
+### 2026-11-19 - Plan refinement & reconciliation
+- Patched BUILD_PLAN.md per instructions:
+  1. Section 3 Step 2: updated prompt reference to Section 9.
+  2. Section 8 Engineering Rules: added rule 10 requiring new Alembic migrations for future database state additions.
+  3. Prompt 1: added shm_size: '2gb' to scraper service in infra/docker-compose.yml; updated acceptance criterion to local validation of CI workflow.
+  4. Prompt 2: added search_job_cells table definition to support pause/cancel/resume in Prompt 4.
+  5. Prompt 5: added MX checks domain caching and bounded concurrency specification.
+  6. Prompt 6: specified SQL/PostGIS or bulk tuple/NumPy hex aggregations.
+  7. Prompt 7 & 16: clarified Argon2/token rotation/workspace isolation in Prompt 7 and verification/reset/RLS/settings/export in Prompt 16.
+  8. Prompt 12: added fallback outreach drafting from lead facts alone if Prompt 11 is skipped.
+  9. Appendix 10: updated model references to claude-haiku-<latest> and claude-sonnet-<latest>.
+- Reconciled Prompt 1: added `shm_size: '2gb'` to `scraper` in `infra/docker-compose.yml`.
+- Reconciled Prompt 2: added `SearchJobCell` model in `apps/api/app/models.py`, created second migration `9806193c2e18_add_search_job_cells_table.py` (`down_revision = '9776c3c292c0'`), updated `apps/api/tests/test_schema.py` with `test_search_job_cells_constraints_and_cascade`.
+- Verified: `alembic upgrade head` succeeded, `alembic check` reports zero drift, pytest passes (16 passed in 3.00s), ruff and web lint/format/typecheck all pass.
+
 ### 2026-11-19 - Prompt 2: Database schema and migrations
 - Added geoalchemy2 0.21 and 13 SQLAlchemy 2 models: workspaces, users, search_jobs, places, place_reviews, hex_metrics, leads, lead_features, enrichments, outreach_drafts, outreach_events, model_versions, do_not_contact.
 - Every user-data table carries a non-null workspace_id (users plus all domain tables); a user maps to one workspace for simple tenant isolation.

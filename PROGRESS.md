@@ -10,7 +10,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 4: Grid planner and job orchestration
 - [x] Prompt 5: Cleaning, normalisation and deduplication
 - [x] Prompt 6: Gap analysis engine
-- [ ] Prompt 7: Backend API
+- [x] Prompt 7: Backend API
 - [ ] Prompt 8: Frontend foundation
 - [ ] Prompt 9: Gap map UI
 - [ ] Prompt 10: Lead features and rule-based scorer
@@ -28,6 +28,28 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-19 - Prompt 7: Backend API
+- Added dependencies to apps/api/requirements.txt: argon2-cffi==23.1.0, pyjwt==2.10.1, httpx==0.28.1, email-validator==2.2.0.
+- Implemented Argon2id password hashing and short-lived JWT access and rotating refresh tokens in app/auth/security.py.
+- Implemented tenant isolation and security dependencies in app/api/deps.py: get_current_user (JWT Bearer authentication), get_current_workspace (guarantees workspace tenant isolation for every operation), and sliding window rate_limiter (120 req/min).
+- Implemented RequestIdMiddleware in app/main.py: generates or propagates X-Request-ID across all requests and responses, plus consistent error response format.
+- Implemented Pydantic v2 schemas across app/schemas/ for auth, jobs, places, gap analysis, leads, outreach drafts, outreach events, and models.
+- Implemented versioned /api/v1 endpoints in app/api/v1/:
+  - auth: POST /register, POST /login, POST /refresh, GET /me.
+  - jobs: POST /jobs (dry_run=true returns cost and grid estimate; dry_run=false creates job and dispatches cells), GET /jobs (paginated), GET /jobs/{id} (progress polling), POST /jobs/{id}/cancel, POST /jobs/{id}/resume.
+  - places: GET /places (filters by category, min_rating, has_website, hex, and text search; cursor pagination).
+  - gap: GET /gap/{job_id}/hexes (returns hex metrics and standard GeoJSON FeatureCollection with polygon boundaries), GET /gap/{job_id}/summary (best 3 and saturated 3 hexes).
+  - leads: GET /leads (sort by final_score, filter by status, min_score, has_email, hex), GET /leads/{id}, PATCH /leads/{id} (status and notes), POST /leads/{id}/drafts, POST /leads/{id}/events.
+  - models: GET /models, GET /models/active/metrics (reports cold-start rules mode), POST /models/train.
+  - account: GET /account/export (exports full workspace data as JSON for DPDP/GDPR data portability), DELETE /account/data (right-to-be-forgotten cascading deletion).
+- Added comprehensive integration test suite in tests/test_api_v1.py:
+  - Validates OpenAPI schema lists every single required endpoint and returns X-Request-ID.
+  - End-to-end auth lifecycle: register -> login -> refresh -> /me.
+  - Jobs lifecycle: dry run estimate and actual job creation.
+  - Strict tenant isolation test: proves User A (Workspace A) data cannot be read, cancelled, or listed by User B (Workspace B).
+  - Leads, drafts, events, and account export/deletion tests.
+- Verified: 294 tests passed in 9.56s; ruff check and format clean; web eslint and tsc clean.
 
 ### 2026-11-19 - Prompt 6: Gap analysis engine
 - Created config/gap.yaml and app/gap/config.py with configurable smoothing constant, quality gap weight, k-ring neighbor weight, quantile thresholds, and category-specific anchor weights.

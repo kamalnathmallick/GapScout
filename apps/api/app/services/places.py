@@ -3,6 +3,7 @@
 import logging
 import uuid
 from collections.abc import Sequence
+from datetime import datetime
 
 from geoalchemy2.elements import WKTElement
 from sqlalchemy import func
@@ -89,18 +90,26 @@ def upsert_places(
                 PlaceReview.place_id == place_id,
             ).delete()
 
-            review_objects = [
-                PlaceReview(
-                    workspace_id=workspace_id,
-                    place_id=place_id,
-                    rating=rev.rating,
-                    review_text=rev.text,
-                    published_at=rev.published_at,
-                    owner_replied=rev.owner_replied,
+            seen_reviews: set[tuple[str | None, datetime | None]] = set()
+            review_objects: list[PlaceReview] = []
+            for rev in dto.reviews:
+                key = (rev.text, rev.published_at)
+                if key in seen_reviews:
+                    continue
+                seen_reviews.add(key)
+                review_objects.append(
+                    PlaceReview(
+                        workspace_id=workspace_id,
+                        place_id=place_id,
+                        rating=rev.rating,
+                        review_text=rev.text,
+                        published_at=rev.published_at,
+                        owner_replied=rev.owner_replied,
+                    )
                 )
-                for rev in dto.reviews
-            ]
-            db.add_all(review_objects)
+
+            if review_objects:
+                db.add_all(review_objects)
 
     db.commit()
     logger.info("Upserted %d places for workspace %s", len(place_ids), workspace_id)

@@ -88,6 +88,33 @@ def test_upsert_places_idempotency_and_no_duplicates(db_engine) -> None:
         assert updated_place.rating == 4.7
         assert updated_place.raw == {"sample_field": "updated_untouched_value"}
 
+        # Verify reviews are NOT duplicated after re-running upsert
+        reviews_after = (
+            session.execute(select(PlaceReview).where(PlaceReview.place_id == first_id))
+            .scalars()
+            .all()
+        )
+        assert len(reviews_after) == 1
+        assert reviews_after[0].review_text == "Best pour over in town!"
+
+        # 3. Third run: passing multiple duplicate review objects in the list
+        duplicate_reviews_dto = dto.model_copy(
+            update={
+                "reviews": [
+                    ReviewDTO(author_name="Priya M", rating=5, text="Duplicate review"),
+                    ReviewDTO(author_name="Priya M", rating=5, text="Duplicate review"),
+                ]
+            }
+        )
+        upsert_places(session, workspace_id, [duplicate_reviews_dto])
+        reviews_deduped = (
+            session.execute(select(PlaceReview).where(PlaceReview.place_id == first_id))
+            .scalars()
+            .all()
+        )
+        assert len(reviews_deduped) == 1
+        assert reviews_deduped[0].review_text == "Duplicate review"
+
 
 def test_upsert_places_workspace_isolation(db_engine) -> None:
     with Session(db_engine) as session:

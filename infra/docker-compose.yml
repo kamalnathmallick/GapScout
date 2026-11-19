@@ -1,0 +1,164 @@
+name: gapscout
+
+x-api-env: &api-env
+  ENVIRONMENT: ${ENVIRONMENT:-development}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://gapscout:gapscout@db:5432/gapscout}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
+  SCRAPER_BASE_URL: ${SCRAPER_BASE_URL:-http://scraper:8080}
+  SCRAPER_CONCURRENCY: ${SCRAPER_CONCURRENCY:-2}
+  MAX_CELLS_PER_JOB: ${MAX_CELLS_PER_JOB:-200}
+  MAX_PLACES_PER_JOB: ${MAX_PLACES_PER_JOB:-5000}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_MODEL_FAST: ${LLM_MODEL_FAST:-claude-haiku-4-5}
+  LLM_MODEL_QUALITY: ${LLM_MODEL_QUALITY:-claude-sonnet-4-5}
+  LLM_DAILY_COST_CAP_USD: ${LLM_DAILY_COST_CAP_USD:-2}
+  GEOCODER_USER_AGENT: ${GEOCODER_USER_AGENT:-gapscout/1.0 (you@example.com)}
+  MAP_TILE_STYLE_URL: ${MAP_TILE_STYLE_URL:-https://tiles.openfreemap.org/styles/liberty}
+  DATA_RETENTION_DAYS: ${DATA_RETENTION_DAYS:-90}
+  ML_MIN_LABELS: ${ML_MIN_LABELS:-150}
+  ML_MIN_POSITIVES: ${ML_MIN_POSITIVES:-20}
+  ML_RETRAIN_EVERY: ${ML_RETRAIN_EVERY:-25}
+  SENTRY_DSN: ${SENTRY_DSN:-}
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gapscout}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-gapscout}
+      POSTGRES_DB: ${POSTGRES_DB:-gapscout}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-gapscout} -d ${POSTGRES_DB:-gapscout}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment: *api-env
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ../apps/api:/app
+      - ../scripts:/scripts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  worker:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    command:
+      [
+        "celery",
+        "-A",
+        "app.celery_app",
+        "worker",
+        "--loglevel=info",
+        "--concurrency=${SCRAPER_CONCURRENCY:-2}",
+      ]
+    environment: *api-env
+    volumes:
+      - ../apps/api:/app
+      - ../scripts:/scripts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    command: ["celery", "-A", "app.celery_app", "beat", "--loglevel=info"]
+    environment: *api-env
+    volumes:
+      - ../apps/api:/app
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile.dev
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+      NEXT_TELEMETRY_DISABLED: "1"
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ../apps/web:/app
+      - web_node_modules:/app/node_modules
+      - web_next:/app/.next
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  scraper:
+    image: gosom/google-maps-scraper:latest
+    command: ["-web", "-addr", ":8080", "-data-folder", "/gmapsdata"]
+    environment:
+      DISABLE_TELEMETRY: "1"
+    ports:
+      - "${SCRAPER_PORT:-8080}:8080"
+    volumes:
+      - scraper_data:/gmapsdata
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080'"]
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  db_data:
+  redis_data:
+  web_node_modules:
+  web_next:
+  scraper_data:

@@ -29,6 +29,7 @@ coverage/
 # Tooling
 *.log
 .cache/
+celerybeat-schedule*
 
 # IDE
 .idea/

@@ -12,7 +12,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 6: Gap analysis engine
 - [x] Prompt 7: Backend API
 - [x] Prompt 8: Frontend foundation
-- [ ] Prompt 9: Gap map UI
+- [x] Prompt 9: Gap map UI
 - [ ] Prompt 10: Lead features and rule-based scorer
 - [ ] Prompt 11: LLM enrichment
 - [ ] Prompt 12: Outreach workflow
@@ -29,17 +29,24 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
-### 2026-11-19 - Plan for Prompt 9: Gap map UI
-- Install MapLibre GL and deck.gl: `maplibre-gl`, `@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/geo-layers`, `@deck.gl/react`.
-- Build `apps/web/components/map/gap-map.tsx`: MapLibre GL canvas with OpenFreeMap vector/raster tiles and deck.gl `H3HexagonLayer`.
-- Implement diverging color-blind-friendly color ramp for opportunity score, supply, density, rating, and demand proxy.
-- Implement controls: metric selector, resolution toggle, opacity slider, place markers toggle, dynamic legend.
-- Implement hover tooltip showing hex opportunity score, label, supply, and demand.
-- Implement click side drawer: hex metrics breakdown, top 3 explanation reasons, and list of places located inside hex.
-- Implement summary cards: 'Top 3 places to open' and 'Most saturated areas' with smooth fly-to animations.
-- Implement export: PNG canvas snapshot, CSV download of hex metrics, and shareable link.
-- Create page `apps/web/app/gap/[id]/page.tsx` integrating map, drawer, summary, and filters.
-- Write tests: Vitest component tests and Playwright interaction tests.
+### 2026-11-20 - Prompt 9: Gap map UI
+- Installed MapLibre GL, deck.gl, and h3-js: `maplibre-gl` (6.19.0), `@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/geo-layers`, `@deck.gl/react`, `@deck.gl/mapbox` (9.4.1), `h3-js` (4.5.0).
+- Implemented diverging, color-blind-safe palette (emerald green to amber to coral red) in `apps/web/lib/color-scale.ts` for opportunity score, supply count, density, average rating, and demand proxy with matching dynamic legend indicators.
+- Implemented map components:
+  - `apps/web/components/map/gap-map.tsx`: MapLibre GL base map using OpenFreeMap liberty vector tiles, deck.gl MapboxOverlay with `H3HexagonLayer` and `ScatterplotLayer` (for place markers), cursor pointer styling, hover tooltip with opportunity score and supply metrics, smooth `flyTo` camera transitions, and canvas snapshot generation via `preserveDrawingBuffer`.
+  - `apps/web/components/map/map-controls.tsx`: Floating map toolbar supporting metric switching (Opportunity, Supply, Density, Rating, Demand), opacity slider (0.1 to 1.0), place marker toggle, resolution indicator, dynamic legend scale, and export triggers (PNG snapshot, CSV metrics download, shareable link).
+  - `apps/web/components/map/gap-summary-cards.tsx`: Interactive banner featuring top 3 high-opportunity (underserved) and top 3 saturated hexes with fly-to click handlers.
+  - `apps/web/components/map/hex-drawer.tsx`: Side drawer revealing comprehensive hex statistics, top 3 explainable gap reasons, and the live paginated list of places situated inside the hex.
+- Created `apps/web/app/gap/[id]/page.tsx` integrating map, drawer, summary cards, and controls.
+- Added automated tests:
+  - Unit component tests in `apps/web/test/gap-map.test.tsx` (6 tests covering color scales, drawer metrics and place rendering, summary cards, and map controls).
+  - End-to-end browser test in `tests-e2e/gap-map.spec.ts` testing map rendering, summary cards, control toggles, and side drawer inspection.
+- Verified:
+  - Vitest: 12 tests passed across 3 test files in 16.7s.
+  - TypeScript: `tsc --noEmit` passed with 0 errors.
+  - Lint and formatting: ESLint passed with 0 errors; Prettier passed.
+  - Playwright: `tests-e2e/gap-map.spec.ts` passed (1 passed in 15.1s).
+- Commit: `feat(web): interactive gap map`.
 
 ### 2026-11-19 - Prompt 8: Frontend foundation
 - Added web dependencies in apps/web/package.json: @tanstack/react-query, lucide-react, vitest, @testing-library/react, @testing-library/jest-dom, jsdom, @vitejs/plugin-react.

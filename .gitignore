@@ -30,6 +30,8 @@ coverage/
 *.log
 .cache/
 celerybeat-schedule*
+test-results/
+playwright-report/
 
 # IDE
 .idea/

@@ -104,5 +104,4 @@ Plan: monorepo layout; compose with 7 services and healthchecks; FastAPI /health
 ## Blockers
 (anything that needs the human: credentials, installs, decisions)
 
-- CI green check: the repo has no GitHub remote. Create an empty GitHub repo and give me the URL (or add it with `git remote add origin ...`), then push. Until then the workflow is written and its steps pass locally.
 - Later, not yet needed: ANTHROPIC_API_KEY (Prompt 11) and map tile provider choice (Prompt 9).

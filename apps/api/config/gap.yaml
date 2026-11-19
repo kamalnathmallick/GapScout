@@ -1,0 +1,51 @@
+# Gap analysis engine configuration
+
+smoothing_constant: 1.0
+quality_gap_weight: 15.0
+k_ring_weight: 0.35  # Weight given to 1-ring neighbors in smoothing
+
+# Demand proxy anchor weights per category
+anchor_weights:
+  cafe:
+    office: 2.5
+    college: 2.0
+    transit: 1.5
+    mall: 1.2
+    apartment: 1.0
+    hospital: 0.5
+  restaurant:
+    office: 1.8
+    mall: 2.0
+    apartment: 1.5
+    transit: 1.2
+    college: 1.0
+  gym:
+    apartment: 2.5
+    office: 1.8
+    mall: 1.0
+    transit: 1.0
+  salon:
+    apartment: 2.2
+    mall: 1.8
+    office: 1.2
+  dental clinic:
+    apartment: 2.5
+    hospital: 1.5
+    office: 1.0
+  coaching centre:
+    college: 2.5
+    transit: 2.0
+    apartment: 1.8
+    office: 0.8
+  default:
+    office: 1.5
+    apartment: 1.5
+    mall: 1.0
+    transit: 1.0
+    college: 1.0
+    hospital: 0.8
+
+# Quantile thresholds for opportunity labels (percentiles across non-empty search area hexes)
+quantiles:
+  underserved_percentile: 0.67
+  oversaturated_percentile: 0.33

@@ -30,7 +30,21 @@ def clean_and_normalize_places_task(job_id_str: str) -> dict:
     job_id = uuid.UUID(job_id_str)
     with SessionLocal() as session:
         report = clean_and_normalize_job_places(session, job_id)
-        return report
+
+    # Automatically trigger gap analysis after cleaning finishes
+    compute_gap_analysis_task.delay(job_id_str)
+    return report
+
+
+@celery_app.task(name="gapscout.compute_gap_analysis_task")
+def compute_gap_analysis_task(job_id_str: str, resolution: int = 8) -> dict:
+    """Compute explainable hex opportunity metrics and summary for a job."""
+    from app.gap.engine import compute_gap_metrics
+
+    job_id = uuid.UUID(job_id_str)
+    with SessionLocal() as session:
+        summary = compute_gap_metrics(session, job_id, resolution=resolution)
+        return summary
 
 
 @celery_app.task(name="gapscout.trigger_post_scrape_pipeline")

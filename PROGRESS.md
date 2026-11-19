@@ -9,7 +9,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 3: Data source layer and scraper integration
 - [x] Prompt 4: Grid planner and job orchestration
 - [x] Prompt 5: Cleaning, normalisation and deduplication
-- [ ] Prompt 6: Gap analysis engine
+- [x] Prompt 6: Gap analysis engine
 - [ ] Prompt 7: Backend API
 - [ ] Prompt 8: Frontend foundation
 - [ ] Prompt 9: Gap map UI
@@ -28,6 +28,26 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-19 - Prompt 6: Gap analysis engine
+- Created config/gap.yaml and app/gap/config.py with configurable smoothing constant, quality gap weight, k-ring neighbor weight, quantile thresholds, and category-specific anchor weights.
+- Implemented anchor category classification in app/gap/anchors.py: identifies offices, colleges, residential apartments, shopping malls, transit stations, and hospitals.
+- Implemented explainable market gap engine in app/gap/engine.py:
+  - Fast SQL/PostGIS bulk-tuple extraction of workspace places avoiding ORM instantiation overhead for 50k-place scalability.
+  - H3 grid indexing and bounding box polygon mapping.
+  - Computes per-hex supply count, density per km2, average rating, average review count, quality gap relative to area median, and nearest competitor distance.
+  - Calculates demand proxy from anchor categories inside hex and its 1-ring neighbors, with automatic fallback to total business density when anchor data is absent.
+  - Applies k-ring (k=1) spatial smoothing to competitor supply.
+  - Computes 0-100 opportunity score with quality gap bonus, bounded strictly to [0, 100].
+  - Labels hexes using quantile thresholds (underserved, balanced, oversaturated, insufficient_data).
+  - Generates top 3 readable explanation reasons per hex and area summary (best 3 and saturated 3 hexes).
+  - Upserts HexMetric records into PostgreSQL and saves gap summary to search_jobs.params["gap_summary"].
+- Wired Celery compute_gap_analysis_task in app/tasks.py into the post-scrape pipeline (scrape -> clean -> gap).
+- Added comprehensive test suite in tests/test_gap.py:
+  - Anchor category classification tests.
+  - Parametric property tests verifying opportunity score is strictly between 0 and 100 across 240 combinations of supply, demand, and quality gaps.
+  - Synthetic city test with crowded downtown centre (10 cafes, rating 3.2, labeled oversaturated) vs empty high-demand suburb (0 cafes, 12 offices, 8 apartments, 3 colleges, 1 transit station, labeled underserved with score >= 70 and top reasons).
+- Verified: 288 tests passed in 5.55s; ruff check/format clean; web eslint/tsc clean.
 
 ### 2026-11-19 - Prompt 5: Cleaning, normalisation and deduplication
 - Switched RUN_MODE in BUILD_PLAN.md to full for continuous execution across remaining prompts.

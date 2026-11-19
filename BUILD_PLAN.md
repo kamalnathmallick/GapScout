@@ -5,7 +5,7 @@ This single file is the complete specification AND the operating instructions fo
 ## SETTINGS (the human may edit these three lines)
 
 ```
-RUN_MODE: checkpoints      # checkpoints = pause for human review after Prompts 3, 6, 9, 14 and 21; full = pause only for blockers
+RUN_MODE: full             # checkpoints = pause for human review after Prompts 3, 6, 9, 14 and 21; full = pause only for blockers
 BUILD_PATH: portfolio      # hackathon = Prompts 1-10 and 12 (if Prompt 11 is skipped, Prompt 12 drafts from the lead facts alone) | portfolio = Prompts 1-18 and 21 | full = Prompts 1-21
 DEPLOY_TARGET: A           # used only by Prompt 20: A = one VPS with docker compose, B = Vercel + Render/Railway + PostGIS provider
 ```

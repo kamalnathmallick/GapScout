@@ -9,6 +9,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import Engine, create_engine, inspect
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 
@@ -79,3 +80,9 @@ def db_engine(test_db_url: URL, admin_conninfo: str, alembic_config: Config) -> 
 
         with psycopg.connect(admin_conninfo, autocommit=True) as connection:
             connection.execute(f'DROP DATABASE IF EXISTS "{database}" WITH (FORCE)')
+
+
+@pytest.fixture
+def db_session(db_engine: Engine) -> Iterator[Session]:
+    with Session(db_engine) as session:
+        yield session

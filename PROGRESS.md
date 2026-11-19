@@ -8,7 +8,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 2: Database schema and migrations
 - [x] Prompt 3: Data source layer and scraper integration
 - [x] Prompt 4: Grid planner and job orchestration
-- [ ] Prompt 5: Cleaning, normalisation and deduplication
+- [x] Prompt 5: Cleaning, normalisation and deduplication
 - [ ] Prompt 6: Gap analysis engine
 - [ ] Prompt 7: Backend API
 - [ ] Prompt 8: Frontend foundation
@@ -28,6 +28,21 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-19 - Prompt 5: Cleaning, normalisation and deduplication
+- Switched RUN_MODE in BUILD_PLAN.md to full for continuous execution across remaining prompts.
+- Added dependencies to apps/api/requirements.txt: phonenumbers==9.0.43, h3==4.5.1, dnspython==2.9.2.
+- Implemented category normalisation in app/cleaning/taxonomy.py: maps messy/raw business categories into controlled taxonomy (cafe, restaurant, gym, salon, dental clinic, coaching centre) via exact token matching and difflib fuzzy matching while retaining the original raw category.
+- Implemented phone normalisation in app/cleaning/phone.py: validates and normalises phone numbers to E.164 with +91 as default region using the phonenumbers library; invalid numbers are dropped.
+- Implemented website cleaning in app/cleaning/website.py: extracts clean domain, strips tracking query parameters (UTM, gclid, fbclid, etc.), and identifies social-media-only pages (Instagram, Facebook, Linktree, WhatsApp wa.me, etc.) as 'no real website'.
+- Implemented email validation and MX checks in app/cleaning/email.py: checks RFC syntax, flags generic mailboxes (info@, contact@, support@, etc.) vs named mailboxes, and performs bounded concurrent domain MX checks with thread-safe caching.
+- Implemented duplicate detection and merging in app/cleaning/duplicates.py: detects duplicates within 50m distance and fuzzy name matching (SequenceMatcher >= 0.85 and token containment), absorbs missing fields into the more complete primary record, and marks secondary duplicates with is_closed=True and raw["is_duplicate"]=True.
+- Implemented H3 resolution 8 computation in app/cleaning/pipeline.py: calculates h3_r8 for every place with geographic coordinates using h3.latlng_to_cell.
+- Implemented data-quality report generation in app/cleaning/pipeline.py: computes total places, open/closed counts, percentage with website, percentage with phone, percentage with email, percentage with named email, rating coverage, and duplicate count; saves report to search_jobs.params["quality_report"].
+- Wired Celery clean_and_normalize_places_task into trigger_post_scrape_pipeline in app/tasks.py.
+- Added test suite in tests/test_cleaning.py: 10+ messy examples each for category, phone, website, and email normalisation, plus duplicate detection, H3 indexing, and end-to-end database pipeline testing.
+- Verified: 46 tests passing in 4.79s; ruff check and format clean; web eslint and tsc clean.
+
 
 ### 2026-11-19 - Prompt 4: Grid planner and job orchestration
 - Implemented Nominatim geocoding in app/services/geocoding.py: maps city/area names to bounding boxes with custom User-Agent and in-memory caching.

@@ -22,6 +22,17 @@ def ping() -> str:
     return "pong"
 
 
+@celery_app.task(name="gapscout.clean_and_normalize_places_task")
+def clean_and_normalize_places_task(job_id_str: str) -> dict:
+    """Run data cleaning, normalization, duplicate detection, and quality report for a job."""
+    from app.cleaning.pipeline import clean_and_normalize_job_places
+
+    job_id = uuid.UUID(job_id_str)
+    with SessionLocal() as session:
+        report = clean_and_normalize_job_places(session, job_id)
+        return report
+
+
 @celery_app.task(name="gapscout.trigger_post_scrape_pipeline")
 def trigger_post_scrape_pipeline(job_id: str) -> None:
     """Trigger cleaning and gap analysis pipelines after job completion."""
@@ -29,9 +40,7 @@ def trigger_post_scrape_pipeline(job_id: str) -> None:
         "Job %s completed! Automatically triggering Prompt 5 (cleaning) and Prompt 6 (gap)",
         job_id,
     )
-    # Stubs for Prompt 5 & 6:
-    # 1. clean_and_normalize_places_task.delay(job_id)
-    # 2. compute_gap_analysis_task.delay(job_id)
+    clean_and_normalize_places_task.delay(job_id)
 
 
 def _get_provider(name: str = "gosom") -> DataSourceProvider:

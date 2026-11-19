@@ -6,7 +6,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Bootstrap (project files created, tools verified)
 - [x] Prompt 1: Repo scaffold and dev environment
 - [x] Prompt 2: Database schema and migrations
-- [ ] Prompt 3: Data source layer and scraper integration
+- [x] Prompt 3: Data source layer and scraper integration
 - [ ] Prompt 4: Grid planner and job orchestration
 - [ ] Prompt 5: Cleaning, normalisation and deduplication
 - [ ] Prompt 6: Gap analysis engine
@@ -28,6 +28,23 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-19 - Prompt 3: Data source layer and scraper integration
+- Researched gosom/google-maps-scraper REST API (/static/spec/spec.yaml) and CLI flags; documented in /docs/scraper-notes.md (job creation POST /api/v1/jobs, polling GET /api/v1/jobs/{id}, CSV download GET /api/v1/jobs/{id}/download, email/extra-reviews/geo/depth controls, CSV columns).
+- Defined DataSourceProvider interface, RawPlace, ReviewDTO, PlaceDTO, and SearchOptions in app/providers/base.py.
+- Added stubs for GooglePlacesApiProvider and CsvImportProvider in app/providers/stubs.py with clear TODOs.
+- Implemented GosomScraperProvider in app/providers/gosom.py with request logging (omitting proxy secrets), job submission, exponential backoff polling, timeout handling, defensive CSV/JSON parsing (malformed reviews, unicode, missing coordinates, price level symbols), and mapping to PlaceDTO.
+- Implemented upsert_places service in app/services/places.py: idempotent upserts keyed by (workspace_id, provider, provider_place_id) storing untouched row in places.raw and child reviews in place_reviews with owner reply detection.
+- Implemented CLI command in app/cli.py (`python -m app.cli scrape --category ... --area ...`) to run queries and store results.
+- Added 27 tests across test_schema, test_parsing, test_gosom_provider, test_upsert, and test_cli. Shared database fixtures moved to tests/conftest.py.
+- Verified:
+  - Unit tests: 27 passed in 3.24s.
+  - Linters: ruff check and ruff format passed; web eslint, prettier, and tsc passed.
+  - Live query: ran `python -u -m app.cli scrape --category "bakery" --area "Indiranagar, Bangalore" --depth 1` against the live scraper service -> found 16 places and upserted them into the database.
+  - Idempotency: ran the exact same query a second time against the workspace -> 51 places before, 51 places after, 0 duplicate rows created.
+- Decisions and deviations:
+  - Scraper REST API returns PascalCase `{"Status": "ok", "ID": "..."}` on completion; GosomScraperProvider was implemented to normalize both uppercase/lowercase keys and handle "ok" / "completed" statuses.
+  - Moved session database test fixtures to `tests/conftest.py` so all test modules share the migrated throwaway database without duplicating test harness code.
 
 ### 2026-11-19 - Plan refinement & reconciliation
 - Patched BUILD_PLAN.md per instructions:

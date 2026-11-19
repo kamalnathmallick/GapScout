@@ -21,6 +21,11 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+psycopg://gapscout:gapscout@db:5432/gapscout"
     redis_url: str = "redis://redis:6379/0"
+    scraper_base_url: str = "http://scraper:8080"
+    secret_key: str = "dev-only-change-me"
+    scraper_concurrency: int = 2
+    max_cells_per_job: int = 200
+    max_places_per_job: int = 5000
 
     # Comma-separated list, kept as a string so pydantic-settings does not try
     # to JSON-decode a plain env var.

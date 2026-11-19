@@ -5,7 +5,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Checklist
 - [x] Bootstrap (project files created, tools verified)
 - [x] Prompt 1: Repo scaffold and dev environment
-- [ ] Prompt 2: Database schema and migrations
+- [x] Prompt 2: Database schema and migrations
 - [ ] Prompt 3: Data source layer and scraper integration
 - [ ] Prompt 4: Grid planner and job orchestration
 - [ ] Prompt 5: Cleaning, normalisation and deduplication
@@ -28,6 +28,23 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-19 - Prompt 2: Database schema and migrations
+- Added geoalchemy2 0.21 and 13 SQLAlchemy 2 models: workspaces, users, search_jobs, places, place_reviews, hex_metrics, leads, lead_features, enrichments, outreach_drafts, outreach_events, model_versions, do_not_contact.
+- Every user-data table carries a non-null workspace_id (users plus all domain tables); a user maps to one workspace for simple tenant isolation.
+- Constraints/indexes: unique (workspace_id, provider, provider_place_id) on places; unique (workspace_id, place_id) on leads; unique (workspace_id, kind, content_hash) on enrichments; partial unique active model per workspace; partial unique DNC email/domain/phone; GiST on places.location (and search_jobs.bbox); btree (workspace_id, h3_r8), (workspace_id, status), (workspace_id, normalized_category), (workspace_id, website_domain). Statuses are VARCHAR + CHECK constraints, not native enums.
+- Alembic: apps/api/alembic.ini and migrations/env.py read DATABASE_URL (tests inject a URL via config.attributes); the initial migration enables PostGIS first; autogenerate excludes extension-owned objects (PostGIS/Tiger).
+- Seed: scripts/seed.py upserts a demo workspace and 20 fake Indiranagar places; idempotent via ON CONFLICT.
+- Compose: PYTHONPATH=/app for Python services so /scripts/seed.py can import the app package.
+- Run: `make up`, `make migrate`, `make seed`.
+- Test: `make test` -> 15 passed. The suite creates/migrates/downgrades/drops a throwaway `<db>_test` database and checks the table set, workspace_id on every user-data table, uniqueness, CHECKs, partial indexes and a 1 km ST_DWithin query. `make lint` passes (ruff now covers migrations and scripts).
+- Verified: upgrade -> downgrade base -> upgrade; `alembic check` reports no drift; seed run twice -> 20 places; /health ok (db 1.07 ms, redis 2.59 ms); all 7 containers healthy/running.
+- Decisions/deviations:
+  - Child tables (place_reviews, lead_features, enrichments, outreach_drafts, outreach_events) also carry workspace_id, per "every row of user data carries a workspace_id"; this keeps Prompt 16 isolation direct.
+  - GeoAlchemy2 creates GiST indexes during CREATE TABLE, so duplicate generated create/drop index calls were removed. The auto-created bbox GiST index on search_jobs is kept for Prompt 4 bbox queries.
+  - The PostGIS image installs Tiger geocoder tables in public; env.py excludes all extension-owned relations so migrations never drop them.
+  - env.py ends the read transaction opened while listing extension tables; without that, Alembic's migration DDL was rolled back silently.
+  - Seed emails/websites use reserved example domains; all seed data is clearly fake.
 
 ### 2026-11-19 - Prompt 1: Repo scaffold and dev environment
 Plan: monorepo layout; compose with 7 services and healthchecks; FastAPI /health (db+redis); Celery ping; Next.js page polling /health; Makefile; env reference; lint/format configs; CI.

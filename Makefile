@@ -28,8 +28,8 @@ test:
 	$(COMPOSE) run --rm --no-deps api pytest
 
 lint:
-	$(COMPOSE) run --rm --no-deps api ruff check app tests
-	$(COMPOSE) run --rm --no-deps api ruff format --check app tests
+	$(COMPOSE) run --rm --no-deps api ruff check app tests migrations /scripts
+	$(COMPOSE) run --rm --no-deps api ruff format --check app tests migrations /scripts
 	$(COMPOSE) run --rm --no-deps web npm run lint
 	$(COMPOSE) run --rm --no-deps web npm run format:check
 	$(COMPOSE) run --rm --no-deps web npm run typecheck

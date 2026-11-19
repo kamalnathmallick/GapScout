@@ -1,6 +1,8 @@
 name: gapscout
 
 x-api-env: &api-env
+  # Scripts live in /scripts, outside the app package.
+  PYTHONPATH: /app
   ENVIRONMENT: ${ENVIRONMENT:-development}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://gapscout:gapscout@db:5432/gapscout}

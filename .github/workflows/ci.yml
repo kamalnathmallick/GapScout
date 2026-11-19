@@ -16,6 +16,22 @@ jobs:
     defaults:
       run:
         working-directory: apps/api
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: gapscout
+          POSTGRES_PASSWORD: gapscout
+          POSTGRES_DB: gapscout
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gapscout -d gapscout"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql+psycopg://gapscout:gapscout@localhost:5432/gapscout
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -26,9 +42,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
       - name: Ruff lint
-        run: ruff check app tests
+        run: ruff check app tests migrations ../../scripts
       - name: Ruff format check
-        run: ruff format --check app tests
+        run: ruff format --check app tests migrations ../../scripts
       - name: Pytest
         run: pytest
 

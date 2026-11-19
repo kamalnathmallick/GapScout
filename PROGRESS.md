@@ -11,7 +11,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 5: Cleaning, normalisation and deduplication
 - [x] Prompt 6: Gap analysis engine
 - [x] Prompt 7: Backend API
-- [ ] Prompt 8: Frontend foundation
+- [x] Prompt 8: Frontend foundation
 - [ ] Prompt 9: Gap map UI
 - [ ] Prompt 10: Lead features and rule-based scorer
 - [ ] Prompt 11: LLM enrichment
@@ -28,6 +28,36 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-19 - Plan for Prompt 9: Gap map UI
+- Install MapLibre GL and deck.gl: `maplibre-gl`, `@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/geo-layers`, `@deck.gl/react`.
+- Build `apps/web/components/map/gap-map.tsx`: MapLibre GL canvas with OpenFreeMap vector/raster tiles and deck.gl `H3HexagonLayer`.
+- Implement diverging color-blind-friendly color ramp for opportunity score, supply, density, rating, and demand proxy.
+- Implement controls: metric selector, resolution toggle, opacity slider, place markers toggle, dynamic legend.
+- Implement hover tooltip showing hex opportunity score, label, supply, and demand.
+- Implement click side drawer: hex metrics breakdown, top 3 explanation reasons, and list of places located inside hex.
+- Implement summary cards: 'Top 3 places to open' and 'Most saturated areas' with smooth fly-to animations.
+- Implement export: PNG canvas snapshot, CSV download of hex metrics, and shareable link.
+- Create page `apps/web/app/gap/[id]/page.tsx` integrating map, drawer, summary, and filters.
+- Write tests: Vitest component tests and Playwright interaction tests.
+
+### 2026-11-19 - Prompt 8: Frontend foundation
+- Added web dependencies in apps/web/package.json: @tanstack/react-query, lucide-react, vitest, @testing-library/react, @testing-library/jest-dom, jsdom, @vitejs/plugin-react.
+- Implemented typed API client and TypeScript models in apps/web/lib/types.ts and apps/web/lib/api.ts for auth, jobs, places, gap analysis, and account data portability/deletion.
+- Created QueryClientProvider wrapper in apps/web/components/providers.tsx and responsive persistent navigation in apps/web/components/navbar.tsx.
+- Created auth pages:
+  - apps/web/app/login/page.tsx: sign in with error banner, loading states, and redirect to dashboard.
+  - apps/web/app/register/page.tsx: workspace creation with full name, email, password, and instant onboarding.
+- Created jobs management pages:
+  - apps/web/app/dashboard/page.tsx: live jobs list table with status badges, progress bars, places count, loading skeletons, and empty state.
+  - apps/web/app/jobs/new/page.tsx: analysis form with category dropdown from taxonomy, geocoded area name, cell size slider (500m-3000m), debounced live dry-run grid and runtime/cost estimate, and job creation.
+  - apps/web/app/jobs/[id]/page.tsx: live progress polling every 3 seconds, progress bar, cancel/resume controls, post-completion data quality report (open/closed, website, phone, email, rating coverage), and gap summary preview.
+  - apps/web/app/settings/page.tsx: user profile, workspace isolation info, DPDP/GDPR JSON data export, and right-to-be-forgotten permanent data deletion.
+- Updated landing page apps/web/app/page.tsx with call-to-actions linking to dashboard, new analysis, login, and registration.
+- Added component test suite in apps/web/test/:
+  - test/job-form.test.tsx: tests form rendering, slider changes, dry run calculation, and job submission redirect.
+  - test/job-progress.test.tsx: tests live progress polling, cancellation controls, and completed quality report rendering.
+- Verified: All 6 web vitest tests passing in 9.67s; TypeScript tsc --noEmit clean; ESLint clean; Prettier clean; all 294 API pytest tests passing.
 
 ### 2026-11-19 - Prompt 7: Backend API
 - Added dependencies to apps/api/requirements.txt: argon2-cffi==23.1.0, pyjwt==2.10.1, httpx==0.28.1, email-validator==2.2.0.

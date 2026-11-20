@@ -45,6 +45,8 @@ jobs:
         run: ruff check app tests migrations ../../scripts
       - name: Ruff format check
         run: ruff format --check app tests migrations ../../scripts
+      - name: Mypy type check
+        run: mypy app --ignore-missing-imports
       - name: Pytest
         run: pytest
       - name: Dependency vulnerability scan (pip-audit)
@@ -74,6 +76,8 @@ jobs:
         run: npm run format:check
       - name: TypeScript
         run: npm run typecheck
+      - name: Unit and Component Tests (Vitest)
+        run: npm test
       - name: Build
         run: npm run build
         env:

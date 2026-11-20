@@ -21,13 +21,25 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 15: Model insights and active learning
 - [x] Prompt 16: Auth, tenancy and settings
 - [x] Prompt 17: Compliance and security hardening
-- [ ] Prompt 18: Testing and quality
+- [x] Prompt 18: Testing and quality
 - [ ] Prompt 19: Observability and operations
 - [ ] Prompt 20: Deployment and CI/CD
 - [ ] Prompt 21: Demo data, docs and portfolio packaging
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-20 - Prompt 18: Testing and quality
+- Verified core backend module test coverage >= 80% (achieved 88%: gap engine 86%, ML pipeline 85-100%, scoring rules 95%, providers 81-100%).
+- Implemented scraper contract tests (`apps/api/tests/test_scraper_contract.py`) against recorded CSV fixtures validating invariant parsing and resilience against corrupt/null data.
+- Built comprehensive `/evals` suite (`evals/` and `apps/api/evals/`) checking grounded citations, strict length caps (chat <= 450 chars, email <= 120 words), mandatory opt-out lines, and prompt injection defense.
+- Implemented performance benchmarks (`apps/api/tests/test_performance.py`): 50,000 places gap computation completed in ~7.1s (< 30s target), 5,000 hexes GeoJSON serialization in ~80ms (< 500ms target).
+- Added frontend component tests (`apps/web/test/leads-table.test.tsx`, `apps/web/test/settings-forms.test.tsx`), with all 5 Vitest test suites passing (17/17 tests).
+- Added Playwright end-to-end full journey test (`tests-e2e/full-journey.spec.ts`) spanning registration, job creation with TOS consent, map view, lead drawer, draft generation, contact logging, reply tracking, and dataset health card progression.
+- Configured strict type checks in CI: `mypy app --ignore-missing-imports` (passing across 76 files with 0 errors) and strict TypeScript `tsc --noEmit` (passing).
+- How to test:
+  - Backend: `docker exec gapscout-api-1 pytest` (352 passed), `docker exec gapscout-api-1 mypy app --ignore-missing-imports` (0 issues).
+  - Web: `npm --prefix apps/web test` (17 passed), `npm --prefix apps/web run typecheck` (0 errors).
 
 ### 2026-11-20 - CI Fix: Ruff formatting, ESLint React hooks, and Prettier checks
 - Fixed backend ruff checks and formatting across all Python code (`app/api/v1/leads.py`, `app/services/drafts.py`, `app/api/v1/models.py`, `app/ml/drift.py`, `app/schemas/leads.py`).

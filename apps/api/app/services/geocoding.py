@@ -67,7 +67,7 @@ def geocode_area(
     settings = get_settings()
     ua = user_agent or settings.geocoder_user_agent
     headers = {"User-Agent": ua}
-    params = {
+    params: dict[str, str | int] = {
         "q": area_name,
         "format": "json",
         "limit": 1,

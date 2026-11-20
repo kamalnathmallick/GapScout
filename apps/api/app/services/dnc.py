@@ -72,14 +72,18 @@ def add_to_dnc(
         raise ValueError("At least one contact method (email, domain, phone) must be provided.")
 
     # Check for existing
+    conditions = []
+    if email_clean:
+        conditions.append(DoNotContact.email == email_clean)
+    if domain_clean:
+        conditions.append(DoNotContact.domain == domain_clean)
+    if phone_clean:
+        conditions.append(DoNotContact.phone == phone_clean)
+
     existing = session.execute(
         select(DoNotContact).where(
             DoNotContact.workspace_id == workspace_id,
-            or_(
-                DoNotContact.email == email_clean if email_clean else False,
-                DoNotContact.domain == domain_clean if domain_clean else False,
-                DoNotContact.phone == phone_clean if phone_clean else False,
-            ),
+            or_(*conditions),
         )
     ).scalar_one_or_none()
 

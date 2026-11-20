@@ -4,6 +4,7 @@ import argparse
 import uuid
 
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import SessionLocal
@@ -12,7 +13,7 @@ from app.providers.gosom import GosomScraperProvider
 from app.services.places import upsert_places
 
 
-def get_or_create_default_workspace(session: SessionLocal) -> uuid.UUID:
+def get_or_create_default_workspace(session: Session) -> uuid.UUID:
     """Return the ID of an existing workspace or create a default demo workspace."""
     workspace = session.execute(select(Workspace).limit(1)).scalar_one_or_none()
     if workspace:

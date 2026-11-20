@@ -136,7 +136,7 @@ def train_and_evaluate_models(
             ("clf", LogisticRegression(C=1.0, max_iter=1000, random_state=42)),
         ]
     )
-    cv_folds = min(3, np.min(np.bincount(y_train)))
+    cv_folds = int(min(3, int(np.min(np.bincount(y_train)))))
     if cv_folds >= 2:
         calibrated_baseline = CalibratedClassifierCV(
             estimator=baseline_lr, method="sigmoid", cv=cv_folds

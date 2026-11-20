@@ -1,0 +1,47 @@
+name: Bug Report
+description: Create a report to help us improve GapScout
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting an issue! Please provide as much detail as possible.
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear description of what the bug is.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to reproduce the behavior.
+      placeholder: |
+        1. Start containers with `make up`
+        2. Navigate to '...'
+        3. Trigger action '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Info
+      description: OS version, Docker version, Python version, Node version.
+      render: shell
+      placeholder: |
+        OS: Windows 11 / Ubuntu 22.04 / macOS
+        Docker: 27.x
+        Node: 20.x
+        Python: 3.11.x
+    validations:
+      required: false

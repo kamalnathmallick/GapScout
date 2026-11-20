@@ -19,6 +19,8 @@ known-first-party = ["app"]
 [tool.ruff.lint.per-file-ignores]
 # Generated migrations keep long CHECK constraint strings on one line.
 "migrations/versions/*" = ["E501"]
+"../../scripts/*" = ["E402", "E501"]
+"scripts/*" = ["E402", "E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

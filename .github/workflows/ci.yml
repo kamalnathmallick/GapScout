@@ -49,6 +49,8 @@ jobs:
         run: mypy app --ignore-missing-imports
       - name: Pytest
         run: pytest
+      - name: Validate Agent Skills frontmatter
+        run: python ../../scripts/validate_skills.py
       - name: Dependency vulnerability scan (pip-audit)
         run: |
           pip install pip-audit

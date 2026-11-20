@@ -1,0 +1,13 @@
+{
+  "name": "gapscout",
+  "version": "0.1.0",
+  "description": "Map-based market intelligence and lead ranking engine powered by Uber H3 spatial indexing and active learning ML.",
+  "author": "GapScout Team",
+  "skills": [
+    "gapscout-setup",
+    "gap-scan",
+    "lead-rank",
+    "draft-pitch",
+    "log-outcome"
+  ]
+}

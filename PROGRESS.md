@@ -24,10 +24,26 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 18: Testing and quality
 - [ ] Prompt 19: Observability and operations
 - [ ] Prompt 20: Deployment and CI/CD
-- [ ] Prompt 21: Demo data, docs and portfolio packaging
+- [x] Prompt 21: Demo data, docs and portfolio packaging
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-20 - Prompt 21: Demo data, docs and portfolio packaging (BUILD_PATH 'portfolio' COMPLETE)
+- Built `scripts/seed_demo.py` featuring 180 realistic Bangalore (Indiranagar & Koramangala) cafes, 23 H3 resolution-8 hex metrics, and 180 historical outcome records (32 positive replies, 148 negative) clearly labelled `DEMO DATA`. Automatically executes the ML tournament, calibrating and activating the winning model version.
+- Authored 7 comprehensive Architecture Decision Records in `docs/adr/` (H3 spatial indexing, 2-stage scoring, DataSourceProvider abstraction, multi-tenant RLS, draft-only outreach, prompt injection quarantine, and dual-store PostGIS/Celery).
+- Wrote `docs/demo-script.md` providing an exact 3-minute walk-through for live demonstrations and recruiter reviews.
+- Authored `docs/portfolio.md` containing 5 quantified resume bullets and a 60-second elevator pitch.
+- Created `CHANGELOG.md` following Keep a Changelog / SemVer standards.
+- Authored 5 Claude Agent Skills in `skills/*/SKILL.md` (`gapscout-setup`, `gap-scan`, `lead-rank`, `draft-pitch`, `log-outcome`) + `.claude-plugin/manifest.json`.
+- Built and integrated `scripts/validate_skills.py` to enforce SKILL.md YAML frontmatter standards in CI.
+- Rewrote root `README.md` into a portfolio showcase featuring badges, Mermaid architecture diagram, 5-minute quick start, 30-second Agent Skills install, ADR links, and legal notice.
+- How to run:
+  - `docker exec gapscout-api-1 python ../../scripts/seed_demo.py`
+  - `python scripts/validate_skills.py`
+- How to test:
+  - Backend: `docker exec gapscout-api-1 pytest` (352 passed), `docker exec gapscout-api-1 mypy app --ignore-missing-imports` (0 issues).
+  - Frontend: `npm --prefix apps/web test` (17 passed), `npm --prefix apps/web run typecheck` (0 issues).
 
 ### 2026-11-20 - Prompt 18: Testing and quality
 - Verified core backend module test coverage >= 80% (achieved 88%: gap engine 86%, ML pipeline 85-100%, scoring rules 95%, providers 81-100%).

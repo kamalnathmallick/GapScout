@@ -483,3 +483,33 @@ class DoNotContact(Base):
             name="at_least_one_contact",
         ),
     )
+
+
+class OfferProfile(Base):
+    __tablename__ = "offer_profiles"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, unique=True, index=True
+    )
+    name: Mapped[str] = mapped_column(
+        String(120), nullable=False, server_default=text("'Default Offer'")
+    )
+    offer_description: Mapped[str | None] = mapped_column(Text)
+    target_categories: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    min_rating: Mapped[float | None] = mapped_column(Float)
+    max_rating: Mapped[float | None] = mapped_column(Float)
+    target_regions: Mapped[list[str]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    weights: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'{}'::jsonb")
+    )
+    created_at: Mapped[datetime] = _created_at()
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    __table_args__ = (UniqueConstraint("workspace_id", name="uq_offer_profiles_workspace"),)

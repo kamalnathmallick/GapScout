@@ -1,0 +1,44 @@
+# Rule-based Lead Scoring Configuration
+# Total max points: 100.0
+
+weights:
+  pain: 25.0
+  fit: 25.0
+  timing: 15.0
+  reachability: 20.0
+  evidence: 15.0
+
+pain:
+  no_website_points: 10.0
+  not_https_points: 4.0
+  low_rating_threshold: 4.0
+  low_rating_points: 6.0
+  unanswered_negative_reviews_points: 5.0
+
+fit:
+  category_match_points: 15.0
+  rating_range_points: 5.0
+  region_match_points: 5.0
+  default_category_points: 10.0
+  default_rating_points: 5.0
+
+timing:
+  recent_review_days_threshold: 90
+  recent_negative_review_points: 7.0
+  new_business_days_threshold: 180
+  new_business_points: 5.0
+  high_opportunity_hex_threshold: 70.0
+  high_opportunity_hex_points: 3.0
+
+reachability:
+  named_email_points: 12.0
+  generic_email_points: 7.0
+  phone_points: 6.0
+  social_or_website_points: 2.0
+
+evidence:
+  high_review_count_threshold: 20
+  high_review_count_points: 5.0
+  hours_complete_points: 3.0
+  verified_location_points: 4.0
+  has_engagement_points: 3.0

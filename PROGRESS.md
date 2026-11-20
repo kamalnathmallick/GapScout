@@ -13,7 +13,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 7: Backend API
 - [x] Prompt 8: Frontend foundation
 - [x] Prompt 9: Gap map UI
-- [ ] Prompt 10: Lead features and rule-based scorer
+- [x] Prompt 10: Lead features and rule-based scorer
 - [ ] Prompt 11: LLM enrichment
 - [ ] Prompt 12: Outreach workflow
 - [ ] Prompt 13: Outcome logging and dataset builder
@@ -28,6 +28,23 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-20 - Prompt 10: Lead features and rule-based scorer
+- Added `OfferProfile` model in `app/models.py` and created new Alembic migration `d70954e45f7b_add_offer_profiles_table.py` (`down_revision = '9806193c2e18'`).
+- Created `config/scoring.yaml` and loader `app/scoring/config.py` defining 5 component weights (Pain: 25.0, Fit: 25.0, Timing: 15.0, Reachability: 20.0, Evidence: 15.0) and thresholds.
+- Built lead feature extraction pipeline in `app/scoring/features.py` (version `v1`): extracts 20 deterministic, review, and neighborhood features (rating, review count, log_review_count, has_real_website, website_is_https, has_phone, has_named_email, has_generic_email, price_level, hours_complete, owner_reply_rate, negative_review_share, days_since_last_review, hex_opportunity_score, hex_supply_count, hex_demand_proxy, distance_to_nearest_competitor_m, plus website_audit_score and number_of_review_pain_themes placeholders).
+- Built rule-based cold-start scoring engine in `app/scoring/rules.py`: computes transparent 0-100 scores across Pain, Fit, Timing, Reachability, and Evidence, producing a structured, readable `score_breakdown` JSON with points and clear explanatory reasons.
+- Built workspace lead scoring pipeline in `app/scoring/pipeline.py`: batch processes places, extracts features, calculates rule scores, and upserts `Lead` and `LeadFeature` records.
+- Added Offer Profile REST endpoints in `app/api/v1/offer_profile.py` (`GET` and `PATCH/PUT /api/v1/offer-profile`) and wired them into `app/api/v1/__init__.py`.
+- Wired Celery task `score_job_leads_task` in `app/tasks.py` automatically triggered after gap analysis completion.
+- Added comprehensive unit and integration tests in `tests/test_scoring.py`:
+  - Feature extraction accuracy across place and review metrics.
+  - Hand-made leads with obvious expected rankings: High-pain target-matching prospect (score 80+) drastically outscoring an unfit, unreachable prospect (score < 30) by > 40 points.
+  - Offer Profile sensitivity: changing target category from `cafe` to `gym` directly modifies Fit component from 25.0 to 0.0.
+  - End-to-end database pipeline testing verifying `Lead` and `LeadFeature` rows.
+  - Added OpenAPI verification and lifecycle tests for `/api/v1/offer-profile` in `tests/test_api_v1.py`.
+- Verified: All 299 API tests passing in 8.53s; `ruff check` and `ruff format` clean; `alembic check` clean with zero drift.
+- Commit: `feat(scoring): lead features and rule-based scorer`.
 
 ### 2026-11-20 - Prompt 9: Gap map UI
 - Installed MapLibre GL, deck.gl, and h3-js: `maplibre-gl` (6.19.0), `@deck.gl/core`, `@deck.gl/layers`, `@deck.gl/geo-layers`, `@deck.gl/react`, `@deck.gl/mapbox` (9.4.1), `h3-js` (4.5.0).

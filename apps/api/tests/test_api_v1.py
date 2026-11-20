@@ -57,6 +57,7 @@ def test_openapi_schema_contains_all_endpoints(api_client: TestClient):
         "/api/v1/models",
         "/api/v1/models/active/metrics",
         "/api/v1/models/train",
+        "/api/v1/offer-profile",
         "/api/v1/account/export",
         "/api/v1/account/data",
     ]
@@ -386,3 +387,47 @@ def test_account_export_and_data_deletion(api_client: TestClient):
     # 3. Authenticated requests now fail (workspace and user deleted)
     check_res = api_client.get("/api/v1/auth/me", headers=headers)
     assert check_res.status_code == 401
+
+
+# ==============================================================================
+# 7. Offer Profile Endpoints
+# ==============================================================================
+def test_offer_profile_lifecycle(api_client: TestClient):
+    reg = api_client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "offer_profile_user@test.com",
+            "password": "password123456",
+            "workspace_name": "Offer WS",
+        },
+    ).json()
+    token = reg["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Get default offer profile
+    get_res = api_client.get("/api/v1/offer-profile", headers=headers)
+    assert get_res.status_code == 200
+    data = get_res.json()
+    assert data["name"] == "Default Offer"
+    assert data["target_categories"] == []
+
+    # 2. Update offer profile
+    update_res = api_client.patch(
+        "/api/v1/offer-profile",
+        json={
+            "name": "B2B SaaS Outreach",
+            "offer_description": "We sell automated local SEO and reputation management",
+            "target_categories": ["cafe", "restaurant"],
+            "min_rating": 2.5,
+            "max_rating": 4.2,
+            "target_regions": ["Indiranagar", "Koramangala"],
+        },
+        headers=headers,
+    )
+    assert update_res.status_code == 200
+    updated = update_res.json()
+    assert updated["name"] == "B2B SaaS Outreach"
+    assert updated["target_categories"] == ["cafe", "restaurant"]
+    assert updated["min_rating"] == 2.5
+    assert updated["max_rating"] == 4.2
+    assert "Indiranagar" in updated["target_regions"]

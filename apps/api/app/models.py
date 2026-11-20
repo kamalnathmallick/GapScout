@@ -91,6 +91,18 @@ class Workspace(Base):
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     name: Mapped[str] = mapped_column(String(120), nullable=False)
+    max_cells_per_job: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("250")
+    )
+    max_places_per_job: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("5000")
+    )
+    daily_llm_cost_cap_usd: Mapped[float] = mapped_column(
+        Float, nullable=False, server_default=text("2.0")
+    )
+    data_retention_days: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("90")
+    )
     created_at: Mapped[datetime] = _created_at()
 
 
@@ -106,6 +118,10 @@ class User(Base):
     full_name: Mapped[str | None] = mapped_column(String(120))
     role: Mapped[str] = mapped_column(String(20), nullable=False, server_default=text("'owner'"))
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("true"))
+    is_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default=text("false"))
+    verification_token: Mapped[str | None] = mapped_column(String(255))
+    reset_token: Mapped[str | None] = mapped_column(String(255))
+    reset_token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = _created_at()
 
     __table_args__ = (CheckConstraint("role IN ('owner', 'admin', 'member')", name="role_allowed"),)

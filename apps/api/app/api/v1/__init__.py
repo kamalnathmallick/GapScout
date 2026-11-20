@@ -11,6 +11,7 @@ from app.api.v1.leads import router as leads_router
 from app.api.v1.models import router as models_router
 from app.api.v1.offer_profile import router as offer_profile_router
 from app.api.v1.places import router as places_router
+from app.api.v1.settings import router as settings_router
 
 api_v1_router = APIRouter(prefix="/api/v1")
 
@@ -22,6 +23,7 @@ api_v1_router.include_router(gap_router)
 api_v1_router.include_router(leads_router)
 api_v1_router.include_router(models_router)
 api_v1_router.include_router(offer_profile_router)
+api_v1_router.include_router(settings_router)
 api_v1_router.include_router(account_router)
 
 __all__ = ["api_v1_router"]

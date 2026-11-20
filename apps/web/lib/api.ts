@@ -5,6 +5,7 @@
 import {
   ActiveLearningLeadOut,
   ActiveModelMetricsOut,
+  ApiUsageOut,
   DNCOut,
   DatasetHealthOut,
   GapSummaryOut,
@@ -18,12 +19,17 @@ import {
   LeadOut,
   LeadsListOut,
   ModelVersionOut,
+  OfferProfileOut,
+  OfferProfileUpdate,
   OutreachDraft,
   OutreachEvent,
   PlacesListOut,
   RankingComparisonItem,
+  ScoringWeightsOut,
   TokenResponse,
   UserOut,
+  WorkspaceCapsOut,
+  WorkspaceCapsUpdate,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -326,15 +332,109 @@ class ApiClient {
     });
   }
 
-  // --- Account Endpoints ---
+  // --- Settings & Tenancy Endpoints ---
 
-  async exportAccountData(): Promise<Record<string, unknown>> {
-    return this.request<Record<string, unknown>>("/api/v1/account/export");
+  async getOfferProfile(): Promise<OfferProfileOut> {
+    return this.request<OfferProfileOut>("/api/v1/offer-profile");
   }
 
-  async deleteAccountData(): Promise<{ message: string; status: string }> {
+  async updateOfferProfile(payload: OfferProfileUpdate): Promise<OfferProfileOut> {
+    return this.request<OfferProfileOut>("/api/v1/offer-profile", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getScoringWeights(): Promise<ScoringWeightsOut> {
+    return this.request<ScoringWeightsOut>("/api/v1/settings/scoring-weights");
+  }
+
+  async updateScoringWeights(weights: Record<string, number>): Promise<ScoringWeightsOut> {
+    return this.request<ScoringWeightsOut>("/api/v1/settings/scoring-weights", {
+      method: "PUT",
+      body: JSON.stringify({ weights }),
+    });
+  }
+
+  async resetScoringWeights(): Promise<ScoringWeightsOut> {
+    return this.request<ScoringWeightsOut>("/api/v1/settings/scoring-weights/reset", {
+      method: "POST",
+    });
+  }
+
+  async getWorkspaceCaps(): Promise<WorkspaceCapsOut> {
+    return this.request<WorkspaceCapsOut>("/api/v1/settings/workspace-caps");
+  }
+
+  async updateWorkspaceCaps(payload: WorkspaceCapsUpdate): Promise<WorkspaceCapsOut> {
+    return this.request<WorkspaceCapsOut>("/api/v1/settings/workspace-caps", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getApiUsage(): Promise<ApiUsageOut> {
+    return this.request<ApiUsageOut>("/api/v1/settings/api-usage");
+  }
+
+  async requestEmailVerification(email?: string): Promise<{ message: string; dev_link?: string }> {
+    return this.request<{ message: string; dev_link?: string }>(
+      "/api/v1/auth/verify-email/request",
+      {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      },
+    );
+  }
+
+  async confirmEmailVerification(
+    token: string,
+  ): Promise<{ message: string; is_verified: boolean }> {
+    return this.request<{ message: string; is_verified: boolean }>(
+      "/api/v1/auth/verify-email/confirm",
+      {
+        method: "POST",
+        body: JSON.stringify({ token }),
+      },
+    );
+  }
+
+  async forgotPassword(email: string): Promise<{ message: string; dev_link?: string }> {
+    return this.request<{ message: string; dev_link?: string }>("/api/v1/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>("/api/v1/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, new_password: newPassword }),
+    });
+  }
+
+  // --- Account Endpoints ---
+
+  async exportAccountData(
+    format: "json" | "csv" = "json",
+  ): Promise<Blob | Record<string, unknown>> {
+    if (format === "csv") {
+      const token = this.getAuthToken();
+      const res = await fetch(`${API_BASE_URL}/api/v1/account/export?format=csv`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error("Failed to export CSV");
+      return res.blob();
+    }
+    return this.request<Record<string, unknown>>("/api/v1/account/export?format=json");
+  }
+
+  async deleteAccountData(
+    confirmation: string = "DELETE MY DATA",
+  ): Promise<{ message: string; status: string }> {
     return this.request<{ message: string; status: string }>("/api/v1/account/data", {
       method: "DELETE",
+      body: JSON.stringify({ confirmation }),
     });
   }
 }

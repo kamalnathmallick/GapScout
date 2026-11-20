@@ -19,7 +19,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 13: Outcome logging and dataset builder
 - [x] Prompt 14: ML training pipeline
 - [x] Prompt 15: Model insights and active learning
-- [ ] Prompt 16: Auth, tenancy and settings
+- [x] Prompt 16: Auth, tenancy and settings
 - [ ] Prompt 17: Compliance and security hardening
 - [ ] Prompt 18: Testing and quality
 - [ ] Prompt 19: Observability and operations
@@ -39,13 +39,32 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
   - Backend: `ruff check` (PASS), `ruff format --check` (PASS), `pytest` (323 tests passed).
   - Web: `npm run lint` (PASS), `npm run format:check` (PASS), `npm run typecheck` (PASS), `npm run build` (PASS), `npm test` (12 tests passed).
 
-### 2026-11-20 - Plan for Prompt 16: Auth, tenancy and settings
-- Implement email verification token stub and password reset flow in `app/api/v1/auth.py` and `app/services/auth.py` (logging link in dev).
-- Implement database-layer workspace isolation hardening (query enforcement & RLS / session scoping) verified by cross-tenant access tests.
-- Build comprehensive Settings pages: Offer Profile editor, scoring-weights editor (with reset to default weights), workspace caps (cells, places, daily LLM cost), data retention days, and API usage stats.
-- Implement account data export (full JSON and CSV) and irreversible delete-my-data action with confirmation.
-- Add new Alembic migration for any new database state/columns required (e.g. workspace caps, settings).
-- Add unit tests in `tests/test_auth_tenancy.py` proving cross-tenant isolation, export, and deletion.
+### 2026-11-20 - Plan for Prompt 17: Compliance and security hardening
+- Add mandatory scraping notice and DPDP/ToS acknowledgement consent checkbox on new job page (`apps/web/app/jobs/new/page.tsx`).
+- Enforce global rate limiting and polite request delays (1.0-2.0s jitter) in scraper provider/adapter (`apps/api/app/providers/scraper.py`).
+- Implement 90-day raw data retention Celery beat task (`cleanup_expired_raw_data_task`) in `app/tasks.py` pruning `place.raw = {}` past retention window.
+- Implement strict field-level allow-list in place cleaning to prevent storing non-business PII.
+- Enforce opt-out lines in outreach templates and DNC validation everywhere.
+- Add security headers middleware (CSP, X-Content-Type-Options, X-Frame-Options, HSTS) and strict CORS in `app/main.py`.
+- Add SSRF validation on external fetch/webhook utilities.
+- Add prompt-injection adversarial test cases in `tests/test_compliance_security.py` verifying raw review/site text cannot hijack LLM prompts.
+- Author `/docs/compliance.md` (DPDP Act, ToS considerations, official Places API switch) and a <=1-page threat model in `/docs/threat-model.md`.
+
+### 2026-11-20 - Prompt 16: Auth, tenancy and settings
+- Added Alembic migration `8f1c4e92a10b_add_workspace_caps_and_user_verification.py` adding caps/retention columns to `workspaces` and email verification/password reset token columns to `users`.
+- Implemented email verification stub and password reset flow in `app/api/v1/auth.py`:
+  - `POST /api/v1/auth/verify-email/request` and `POST /api/v1/auth/verify-email/confirm`.
+  - `POST /api/v1/auth/forgot-password` (logs link in development) and `POST /api/v1/auth/reset-password`.
+- Hardened database-layer multi-tenant workspace isolation across all models and endpoints.
+- Added Settings API endpoints in `app/api/v1/settings.py`:
+  - `GET`/`PUT /api/v1/settings/workspace-caps`: configure cell caps, place caps, daily LLM cost, retention days.
+  - `GET`/`PUT`/`POST /api/v1/settings/scoring-weights` and `/reset`: custom weights with 1-click reset to defaults.
+  - `GET /api/v1/settings/api-usage`: active spend vs cap metrics.
+- Added Account tools in `app/api/v1/account.py`:
+  - `GET /api/v1/account/export`: streaming full account data as JSON or CSV.
+  - `DELETE /api/v1/account/data`: irreversible cascade deletion with strict "DELETE MY DATA" confirmation.
+- Built comprehensive tabbed Settings page at `apps/web/app/settings/page.tsx` (Offer Profile, Scoring Weights, Workspace Caps, API Usage, Account Security, Data Export, Delete Data).
+- Added comprehensive test suite in `tests/test_auth_tenancy.py` (5 tests passing) verifying email verification, password reset, cross-tenant isolation enforcement, workspace caps, and export/deletion.
 
 ### 2026-11-20 - Prompt 15: Model insights and active learning
 - Added active learning and ranking comparison endpoints in `app/api/v1/models.py`:

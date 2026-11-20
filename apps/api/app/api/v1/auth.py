@@ -1,6 +1,9 @@
-"""Auth endpoints: register, login, refresh, me."""
+"""Auth endpoints: register, login, refresh, me, verification, and password reset."""
 
-from typing import Annotated
+import logging
+import secrets
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -16,13 +19,19 @@ from app.auth.security import (
 )
 from app.models import User, Workspace
 from app.schemas.auth import (
+    ForgotPasswordRequest,
     LoginRequest,
     RefreshRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserOut,
+    VerifyEmailConfirm,
+    VerifyEmailRequest,
     WorkspaceOut,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -43,6 +52,7 @@ def _build_token_response(user: User, workspace: Workspace) -> TokenResponse:
         full_name=user.full_name,
         role=user.role,
         is_active=user.is_active,
+        is_verified=user.is_verified,
         workspace=ws_out,
         created_at=user.created_at,
     )
@@ -173,6 +183,114 @@ def me(
         full_name=user.full_name,
         role=user.role,
         is_active=user.is_active,
+        is_verified=user.is_verified,
         workspace=ws_out,
         created_at=user.created_at,
     )
+
+
+@router.post("/verify-email/request")
+def request_email_verification(
+    req: VerifyEmailRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    """Generate email verification link stub and log to console in development."""
+    target_user = None
+    if req.email:
+        target_user = db.scalar(select(User).where(User.email == req.email.lower().strip()))
+
+    if not target_user:
+        return {"message": "Verification instructions generated if account exists."}
+
+    token = secrets.token_urlsafe(32)
+    target_user.verification_token = token
+    db.commit()
+
+    verification_link = f"http://localhost:3000/verify-email?token={token}"
+    logger.info(
+        "Email verification link generated for %s: %s", target_user.email, verification_link
+    )
+
+    return {
+        "message": "Verification instructions generated if account exists.",
+        "dev_link": verification_link,
+    }
+
+
+@router.post("/verify-email/confirm")
+def confirm_email_verification(
+    req: VerifyEmailConfirm,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, Any]:
+    """Confirm email verification using verification token."""
+    user = db.scalar(select(User).where(User.verification_token == req.token.strip()))
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token.",
+        )
+
+    user.is_verified = True
+    user.verification_token = None
+    db.commit()
+
+    return {"message": "Email verified successfully.", "is_verified": True}
+
+
+@router.post("/forgot-password")
+def forgot_password(
+    req: ForgotPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    """Generate password reset token and log link to console in development."""
+    user = db.scalar(select(User).where(User.email == req.email.lower().strip()))
+    if not user:
+        return {"message": "If an account exists with that email, a reset link was sent."}
+
+    token = secrets.token_urlsafe(32)
+    user.reset_token = token
+    user.reset_token_expires_at = datetime.now(UTC) + timedelta(hours=1)
+    db.commit()
+
+    reset_link = f"http://localhost:3000/reset-password?token={token}"
+    logger.info("Password reset link generated for %s: %s", user.email, reset_link)
+
+    return {
+        "message": "If an account exists with that email, a reset link was sent.",
+        "dev_link": reset_link,
+    }
+
+
+@router.post("/reset-password")
+def reset_password(
+    req: ResetPasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> dict[str, str]:
+    """Reset account password using valid reset token."""
+    user = db.scalar(select(User).where(User.reset_token == req.token.strip()))
+    if not user or not user.reset_token_expires_at:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token.",
+        )
+
+    now = datetime.now(UTC)
+    expires_at = user.reset_token_expires_at
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+
+    if expires_at < now:
+        user.reset_token = None
+        user.reset_token_expires_at = None
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Reset token has expired.",
+        )
+
+    user.password_hash = hash_password(req.new_password)
+    user.reset_token = None
+    user.reset_token_expires_at = None
+    db.commit()
+
+    return {"message": "Password updated successfully. You may now log in with your new password."}

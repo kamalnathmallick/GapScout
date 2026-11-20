@@ -14,6 +14,7 @@ export interface UserOut {
   full_name: string | null;
   role: string;
   is_active: boolean;
+  is_verified?: boolean;
   workspace: WorkspaceOut;
   created_at: string;
 }
@@ -365,4 +366,57 @@ export interface LeadExplanationOut {
     direction: "positive" | "negative";
     reason: string;
   }[];
+}
+
+export interface WorkspaceCapsOut {
+  max_cells_per_job: number;
+  max_places_per_job: number;
+  daily_llm_cost_cap_usd: number;
+  data_retention_days: number;
+}
+
+export interface WorkspaceCapsUpdate {
+  max_cells_per_job?: number;
+  max_places_per_job?: number;
+  daily_llm_cost_cap_usd?: number;
+  data_retention_days?: number;
+}
+
+export interface ScoringWeightsOut {
+  weights: Record<string, number>;
+  is_custom: boolean;
+}
+
+export interface ApiUsageOut {
+  total_calls: number;
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_cost_usd: number;
+  cost_today_usd: number;
+  daily_cost_cap_usd: number;
+  remaining_budget_today_usd: number;
+}
+
+export interface OfferProfileOut {
+  id: string;
+  workspace_id: string;
+  name: string;
+  offer_description: string | null;
+  target_categories: string[];
+  min_rating: number | null;
+  max_rating: number | null;
+  target_regions: string[];
+  weights: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface OfferProfileUpdate {
+  name?: string;
+  offer_description?: string;
+  target_categories?: string[];
+  min_rating?: number | null;
+  max_rating?: number | null;
+  target_regions?: string[];
+  weights?: Record<string, unknown>;
 }

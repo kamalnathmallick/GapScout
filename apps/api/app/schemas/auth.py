@@ -46,6 +46,7 @@ class UserOut(BaseModel):
     full_name: str | None
     role: str
     is_active: bool
+    is_verified: bool = False
     workspace: WorkspaceOut
     created_at: datetime
 
@@ -59,3 +60,28 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class VerifyEmailRequest(BaseModel):
+    """Request email verification link."""
+
+    email: EmailStr | None = None
+
+
+class VerifyEmailConfirm(BaseModel):
+    """Confirm email verification token."""
+
+    token: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Request password reset link."""
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    """Reset password with token."""
+
+    token: str
+    new_password: str = Field(min_length=8)

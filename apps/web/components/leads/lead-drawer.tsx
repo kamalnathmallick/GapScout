@@ -69,7 +69,7 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
     return () => {
       ignore = true;
     };
-  }, [lead?.id]);
+  }, [lead]);
 
   if (!lead) return null;
 

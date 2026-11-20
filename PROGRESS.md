@@ -29,6 +29,12 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
+### 2026-11-20 - CI Fix: Resolve failing GitHub Actions checks (2/2 Green)
+- Diagnosed failing `API lint and tests` in workflow runs since commit `af11567`: `test_api_security_headers_present` asserted `response.status_code == 200` on `/health` which returned HTTP 503 in CI due to missing Redis service container.
+- Added Redis service container (`redis:7-alpine`) and `REDIS_URL` to `.github/workflows/ci.yml`.
+- Isolated `test_api_security_headers_present` from external live infrastructure via monkeypatching `check_db` and `check_redis`.
+- Verified GitHub Actions run 44778272485 completed with conclusion: `success` across all jobs (`2 / 2` green).
+
 ### 2026-11-20 - Prompt 21: Demo data, docs and portfolio packaging (BUILD_PATH 'portfolio' COMPLETE)
 - Built `scripts/seed_demo.py` featuring 180 realistic Bangalore (Indiranagar & Koramangala) cafes, 23 H3 resolution-8 hex metrics, and 180 historical outcome records (32 positive replies, 148 negative) clearly labelled `DEMO DATA`. Automatically executes the ML tournament, calibrating and activating the winning model version.
 - Authored 7 comprehensive Architecture Decision Records in `docs/adr/` (H3 spatial indexing, 2-stage scoring, DataSourceProvider abstraction, multi-tenant RLS, draft-only outreach, prompt injection quarantine, and dual-store PostGIS/Celery).

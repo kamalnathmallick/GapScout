@@ -17,6 +17,7 @@ import {
 import { LeadOut } from "@/lib/types";
 import { api } from "@/lib/api";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
+import { DatasetHealthCard } from "@/components/dataset-health-card";
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<LeadOut[]>([]);
@@ -108,6 +109,11 @@ export default function LeadsPage() {
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-indigo-400" : ""}`} />
             <span>Refresh</span>
           </button>
+        </div>
+
+        {/* Dataset Health & ML Unlock Status Card */}
+        <div className="mb-6">
+          <DatasetHealthCard />
         </div>
 
         {/* Filter Toolbar */}

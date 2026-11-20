@@ -21,4 +21,11 @@ celery_app.conf.update(
     enable_utc=True,
     task_track_started=True,
     broker_connection_retry_on_startup=True,
+    beat_schedule={
+        "close-outreach-windows-daily": {
+            "task": "gapscout.close_outreach_windows_task",
+            "schedule": 86400.0,  # Run daily
+            "args": (14,),
+        },
+    },
 )

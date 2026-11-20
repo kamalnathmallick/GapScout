@@ -4,6 +4,7 @@
 
 import {
   DNCOut,
+  DatasetHealthOut,
   GapSummaryOut,
   GeneratedDraftOut,
   GridEstimateOut,
@@ -236,6 +237,32 @@ class ApiClient {
       method: "POST",
       body: JSON.stringify(payload),
     });
+  }
+
+  async logOutcome(
+    leadId: string,
+    payload: { outcome: string; occurred_at?: string; notes?: string }
+  ): Promise<OutreachEvent> {
+    return this.request<OutreachEvent>(`/api/v1/leads/${leadId}/outcomes`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async importOutcomesCsv(
+    csvContent: string
+  ): Promise<{ imported: number; skipped: number; errors: string[] }> {
+    return this.request<{ imported: number; skipped: number; errors: string[] }>(
+      "/api/v1/leads/outcomes/import-csv",
+      {
+        method: "POST",
+        body: JSON.stringify({ csv_content: csvContent }),
+      }
+    );
+  }
+
+  async getDatasetHealth(): Promise<DatasetHealthOut> {
+    return this.request<DatasetHealthOut>("/api/v1/models/dataset/health");
   }
 
   // --- Do-Not-Contact (DNC) Endpoints ---

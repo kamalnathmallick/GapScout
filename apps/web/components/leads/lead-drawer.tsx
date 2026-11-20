@@ -59,6 +59,18 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
     }
   };
 
+  const handleLogOutcome = async (outcome: string) => {
+    setUpdating(true);
+    try {
+      await api.logOutcome(lead.id, { outcome });
+      onLeadUpdated();
+    } catch (err) {
+      console.error("Failed to log outcome", err);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const handleSaveNotes = async () => {
     setSavingNotes(true);
     try {
@@ -173,6 +185,43 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
                 {st.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Quick Log Outcome */}
+        <div className="rounded-xl bg-gray-900 border border-gray-800 p-3 space-y-2">
+          <label className="text-xs font-semibold text-gray-300 uppercase tracking-wider block">
+            Log Outreach Outcome
+          </label>
+          <div className="grid grid-cols-4 gap-1.5 text-xs">
+            <button
+              onClick={() => handleLogOutcome("replied")}
+              disabled={updating}
+              className="py-1.5 px-2 bg-emerald-950/70 hover:bg-emerald-900/90 text-emerald-300 border border-emerald-800/80 rounded-md font-medium text-center transition-colors"
+            >
+              Replied
+            </button>
+            <button
+              onClick={() => handleLogOutcome("meeting")}
+              disabled={updating}
+              className="py-1.5 px-2 bg-purple-950/70 hover:bg-purple-900/90 text-purple-300 border border-purple-800/80 rounded-md font-medium text-center transition-colors"
+            >
+              Meeting
+            </button>
+            <button
+              onClick={() => handleLogOutcome("converted")}
+              disabled={updating}
+              className="py-1.5 px-2 bg-green-950/70 hover:bg-green-900/90 text-green-300 border border-green-800/80 rounded-md font-medium text-center transition-colors"
+            >
+              Converted
+            </button>
+            <button
+              onClick={() => handleLogOutcome("no_reply")}
+              disabled={updating}
+              className="py-1.5 px-2 bg-gray-950 hover:bg-gray-800 text-gray-400 border border-gray-800 rounded-md font-medium text-center transition-colors"
+            >
+              No Reply
+            </button>
           </div>
         </div>
 

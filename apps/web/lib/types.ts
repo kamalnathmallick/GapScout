@@ -285,3 +285,16 @@ export interface DNCOut {
   created_at: string;
 }
 
+export interface DatasetHealthOut {
+  total_labelled: number;
+  positives_count: number;
+  negatives_count: number;
+  positive_rate: number;
+  min_labels_required: number;
+  min_positives_required: number;
+  unlocked: boolean;
+  labels_needed: number;
+  positives_needed: number;
+}
+
+

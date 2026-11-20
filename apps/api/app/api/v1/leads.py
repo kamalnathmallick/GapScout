@@ -19,6 +19,7 @@ from app.models import (
     Place,
     Workspace,
 )
+from app.outcomes.logging import OutcomeError, import_outcomes_from_csv, log_lead_outcome
 from app.schemas.common import PaginationMeta
 from app.schemas.leads import (
     GeneratedDraftOut,
@@ -31,6 +32,7 @@ from app.schemas.leads import (
     OutreachEventOut,
     OutreachEventRequest,
 )
+from app.schemas.outcomes import OutcomeImportOut, OutcomeImportRequest, OutcomeLogRequest
 from app.schemas.places import PlaceOut
 from app.services.dnc import add_to_dnc, is_lead_dnc
 from app.services.drafts import DNCBlockedError, enforce_length_caps, generate_and_save_draft
@@ -187,6 +189,24 @@ def list_leads(
             has_more=(offset + len(items)) < total,
         ),
     )
+
+
+@router.post("/outcomes/import-csv", response_model=OutcomeImportOut)
+def import_outcomes_csv_endpoint(
+    req: OutcomeImportRequest,
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+) -> OutcomeImportOut:
+    """Import externally tracked outreach outcomes from CSV."""
+    try:
+        result = import_outcomes_from_csv(
+            session=db,
+            workspace_id=workspace.id,
+            csv_text=req.csv_content,
+        )
+        return OutcomeImportOut(**result)
+    except OutcomeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/{lead_id}", response_model=LeadOut)
@@ -395,3 +415,33 @@ def create_lead_event(
     db.refresh(event)
 
     return OutreachEventOut.model_validate(event)
+
+
+@router.post(
+    "/{lead_id}/outcomes",
+    response_model=OutreachEventOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def log_lead_outcome_endpoint(
+    lead_id: uuid.UUID,
+    req: OutcomeLogRequest,
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+) -> OutreachEventOut:
+    """Log an outreach outcome (replied, no_reply, meeting, converted) for a lead."""
+    lead = db.get(Lead, lead_id)
+    if not lead or lead.workspace_id != workspace.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found.")
+
+    try:
+        event = log_lead_outcome(
+            session=db,
+            lead_id=lead.id,
+            outcome=req.outcome,
+            occurred_at=req.occurred_at,
+            notes=req.notes,
+        )
+        return OutreachEventOut.model_validate(event)
+    except OutcomeError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+

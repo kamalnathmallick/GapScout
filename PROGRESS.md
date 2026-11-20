@@ -16,7 +16,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 10: Lead features and rule-based scorer
 - [x] Prompt 11: LLM enrichment
 - [x] Prompt 12: Outreach workflow
-- [ ] Prompt 13: Outcome logging and dataset builder
+- [x] Prompt 13: Outcome logging and dataset builder
 - [ ] Prompt 14: ML training pipeline
 - [ ] Prompt 15: Model insights and active learning
 - [ ] Prompt 16: Auth, tenancy and settings
@@ -29,14 +29,43 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
-### 2026-11-20 - Plan for Prompt 13: Outcome logging and dataset builder
-- Define outcome models & window-closing logic: positive = replied <= 14 days, negative = no_reply > 14 days, secondary labels (meeting, converted).
-- Add Celery beat task `close_outreach_windows_task` in `app/tasks.py` running daily to close contact windows > 14 days.
-- Add outcome quick-log endpoints in `app/api/v1/leads.py`: `POST /leads/{id}/outcomes` and CSV import `POST /leads/outcomes/import-csv`.
-- Implement leak-free dataset builder in `app/outcomes/dataset.py` reading frozen `features_snapshot` from `outreach_events`.
-- Add dataset health summary endpoint in `app/api/v1/models.py` or `leads.py` reporting counts, positive rate, and cold-start unlocking delta.
-- Build dataset health card in web UI (`apps/web/components/health-card.tsx`).
-- Add tests in `tests/test_outcomes.py`: window closing, CSV import, immutability, and strict anti-leakage verification.
+### 2026-11-20 - Plan for Prompt 14: ML training pipeline
+- Implement cold-start gating in `app/ml/gating.py`: require >= 150 labelled outcomes and >= 20 positives; fallback to explainable rules.
+- Implement baseline regularized LogisticRegression (StandardScaler) and challenger HistGradientBoostingClassifier (LightGBM compatible) in `app/ml/pipeline.py`.
+- Add probability calibration using Platt scaling / isotonic regression with time-based splits.
+- Implement dynamic rule+ML blending function (weight scale 0.3 -> 0.8 as sample size increases).
+- Implement SHAP explanation engine in `app/ml/shap_explainer.py` extracting top-3 feature impacts per lead.
+- Support model registration, metrics tracking, and one-click rollback in `model_versions` table.
+- Implement feature drift checks comparing inference distributions against training snapshots.
+- Add comprehensive test suite in `tests/test_ml.py` proving planted signal recovery (AUC > 0.65), gating, blending, and rollback.
+
+### 2026-11-20 - Prompt 13: Outcome logging and dataset builder
+- Implemented outcome logging and CSV importer in `app/outcomes/logging.py`:
+  - Quick logging of `replied`, `no_reply`, `meeting`, `converted` outcomes in `outreach_events`.
+  - Auto-updates lead status and appends internal outcome notes.
+  - CSV batch importer (`import_outcomes_from_csv`) matching by email, domain, or place name.
+- Implemented 14-day outreach window-closing Celery task in `app/tasks.py`:
+  - Scheduled daily via Celery beat (`close-outreach-windows-daily`).
+  - Closes overdue contacted leads older than 14 days without replies, creating a `no_reply` event.
+- Built leak-free training dataset builder in `app/outcomes/dataset.py`:
+  - Enforces zero data leakage: reads strictly from frozen `features_snapshot` in `contacted` events.
+  - Formulates labels: `label = 1` for replies <= 14 days; `label = 0` for `no_reply` or > 14 days without reply.
+  - Excludes open windows (< 14 days with no reply) and DNC / opt-out leads.
+  - Provides `get_dataset_health` calculating volume, positive rate, and cold-start unlocking delta.
+- Added API endpoints in `app/api/v1/leads.py` and `app/api/v1/models.py`:
+  - `POST /api/v1/leads/{id}/outcomes`
+  - `POST /api/v1/leads/outcomes/import-csv`
+  - `GET /api/v1/models/dataset/health`
+  - `GET /api/v1/models/dataset/export`
+- Built frontend UI:
+  - `apps/web/components/dataset-health-card.tsx` displaying labelled count, positives, reply rate, and progress bar toward ML unlock.
+  - Embedded health card in `apps/web/app/leads/page.tsx`.
+  - Added Quick Log Outcome action bar (Replied, Meeting, Converted, No Reply) in `apps/web/components/leads/lead-drawer.tsx`.
+- Added unit and anti-leakage test suite in `tests/test_outcomes.py` (4 tests passing):
+  - Verified snapshot immutability: proved post-contact mutations to `Place` or `LeadFeature` do NOT alter training row.
+  - Verified window closing Celery task: overdue leads auto-closed, active windows preserved.
+  - Verified CSV outcome import and status updates.
+  - Verified dataset health and cold-start gating logic.
 
 ### 2026-11-20 - Prompt 12: Outreach workflow
 - Built DNC management in `app/services/dnc.py`, `app/schemas/dnc.py`, and `app/api/v1/dnc.py`:

@@ -8,11 +8,13 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_workspace, get_db
 from app.models import ModelVersion, Workspace
+from app.outcomes.dataset import build_training_dataset, get_dataset_health
 from app.schemas.models import (
     ActiveModelMetricsOut,
     ModelTrainRequest,
     ModelVersionOut,
 )
+from app.schemas.outcomes import DatasetHealthOut
 
 router = APIRouter(prefix="/models", tags=["models"])
 
@@ -102,3 +104,23 @@ def trigger_model_training(
             f"Minimum {req.min_samples} logged outcomes required."
         ),
     )
+
+
+@router.get("/dataset/health", response_model=DatasetHealthOut)
+def get_dataset_health_endpoint(
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+) -> DatasetHealthOut:
+    """Get dataset health metrics for ML unlock readiness."""
+    health = get_dataset_health(session=db, workspace_id=workspace.id)
+    return DatasetHealthOut(**health)
+
+
+@router.get("/dataset/export")
+def export_training_dataset(
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """Export leak-free training dataset containing snapshotted features."""
+    dataset = build_training_dataset(session=db, workspace_id=workspace.id)
+    return {"items": dataset, "total": len(dataset)}

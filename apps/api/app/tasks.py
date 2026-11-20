@@ -3,6 +3,8 @@
 import logging
 import time
 import uuid
+from datetime import UTC
+from typing import Any
 
 from sqlalchemy import func, select
 
@@ -85,6 +87,58 @@ def compute_gap_analysis_task(job_id_str: str, resolution: int = 8) -> dict:
     # Automatically trigger lead scoring after gap analysis finishes
     score_job_leads_task.delay(job_id_str)
     return summary
+
+
+@celery_app.task(name="gapscout.close_outreach_windows_task")
+def close_outreach_windows_task(days_window: int = 14, db_session: Any | None = None) -> int:
+    """Close outreach contact windows older than days_window without replies, recording no_reply."""
+    from datetime import datetime, timedelta
+
+    from app.models import OutreachEvent
+
+    cutoff = datetime.now(UTC) - timedelta(days=days_window)
+    closed_count = 0
+
+    def _process(session: Any) -> int:
+        nonlocal closed_count
+        contact_events = (
+            session.execute(
+                select(OutreachEvent).where(
+                    OutreachEvent.event_type == "contacted",
+                    OutreachEvent.occurred_at <= cutoff,
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        for ce in contact_events:
+            outcome_exists = session.execute(
+                select(OutreachEvent.id).where(
+                    OutreachEvent.lead_id == ce.lead_id,
+                    OutreachEvent.event_type.in_(["replied", "meeting", "converted", "no_reply"]),
+                )
+            ).scalar_one_or_none()
+
+            if not outcome_exists:
+                no_reply_event = OutreachEvent(
+                    workspace_id=ce.workspace_id,
+                    lead_id=ce.lead_id,
+                    event_type="no_reply",
+                    occurred_at=datetime.now(UTC),
+                )
+                session.add(no_reply_event)
+                closed_count += 1
+
+        if closed_count > 0:
+            session.commit()
+        return closed_count
+
+    if db_session is not None:
+        return _process(db_session)
+
+    with SessionLocal() as session:
+        return _process(session)
 
 
 @celery_app.task(name="gapscout.trigger_post_scrape_pipeline")

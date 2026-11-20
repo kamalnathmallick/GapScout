@@ -15,7 +15,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 9: Gap map UI
 - [x] Prompt 10: Lead features and rule-based scorer
 - [x] Prompt 11: LLM enrichment
-- [ ] Prompt 12: Outreach workflow
+- [x] Prompt 12: Outreach workflow
 - [ ] Prompt 13: Outcome logging and dataset builder
 - [ ] Prompt 14: ML training pipeline
 - [ ] Prompt 15: Model insights and active learning
@@ -28,6 +28,43 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-20 - Plan for Prompt 13: Outcome logging and dataset builder
+- Define outcome models & window-closing logic: positive = replied <= 14 days, negative = no_reply > 14 days, secondary labels (meeting, converted).
+- Add Celery beat task `close_outreach_windows_task` in `app/tasks.py` running daily to close contact windows > 14 days.
+- Add outcome quick-log endpoints in `app/api/v1/leads.py`: `POST /leads/{id}/outcomes` and CSV import `POST /leads/outcomes/import-csv`.
+- Implement leak-free dataset builder in `app/outcomes/dataset.py` reading frozen `features_snapshot` from `outreach_events`.
+- Add dataset health summary endpoint in `app/api/v1/models.py` or `leads.py` reporting counts, positive rate, and cold-start unlocking delta.
+- Build dataset health card in web UI (`apps/web/components/health-card.tsx`).
+- Add tests in `tests/test_outcomes.py`: window closing, CSV import, immutability, and strict anti-leakage verification.
+
+### 2026-11-20 - Prompt 12: Outreach workflow
+- Built DNC management in `app/services/dnc.py`, `app/schemas/dnc.py`, and `app/api/v1/dnc.py`:
+  - Contact lookup (`is_contact_dnc`, `is_lead_dnc`) and creation (`add_to_dnc`) by email, domain, or phone.
+  - Excludes DNC leads from default leads list queries (`include_dnc=False`).
+  - Automatically registers business contact vectors on DNC when lead status is set to `do_not_contact`.
+- Built grounded draft generator in `app/services/drafts.py`:
+  - Enforces channel length caps: WhatsApp / chat <= 450 characters; cold email <= 120 words.
+  - Enforces mandatory opt-out lines: "Reply STOP to opt out." for chat; "Reply STOP or unsubscribe to not hear from us again." for email.
+  - Selects exactly one verified finding without hallucinated metrics (falls back to clean place facts or `[N]`).
+  - Supports Claude API structured generation with robust deterministic fallback.
+  - Constructs zero-automation `mailto:` and `https://wa.me/` deep links.
+- Updated leads API in `app/api/v1/leads.py`:
+  - Added `POST /api/v1/leads/{id}/generate-draft` with DNC blocking (`DNCBlockedError` -> HTTP 400).
+  - Enforced status transition validation in `PATCH /api/v1/leads/{id}`.
+  - Automatically captures and freezes `features_snapshot` in `outreach_events` upon transitioning to `contacted`.
+- Built Next.js leads management UI:
+  - Scored leads table at `apps/web/app/leads/page.tsx` with sorting, multi-select, and quick filters (status, min score, has email, DNC toggle).
+  - Bulk actions for Shortlist and Reject.
+  - Interactive lead drawer `apps/web/components/leads/lead-drawer.tsx` with business facts, 5-component score breakdown, internal notes editor, status pipeline selector, and event timeline.
+  - Draft generator component `apps/web/components/leads/draft-generator.tsx` with channel switch, tone select, live word/char counters, editable draft area, Copy button, "Open in Mail", "Open WhatsApp", and "Mark as Contacted" button.
+  - Added Leads page link to main navigation `apps/web/components/navbar.tsx`.
+- Added test suite in `tests/test_outreach.py` (5 tests passing):
+  - Verified chat (<= 450 chars) and email (<= 120 words) length caps and mandatory opt-out lines.
+  - Verified grounded citations and non-hallucinated fallbacks.
+  - Verified DNC blocking of drafts and status transitions.
+  - Verified automatic feature snapshotting on `contacted`.
+  - Proved non-negotiable safety: verified zero automated sending code paths exist.
 
 ### 2026-11-20 - Prompt 11: LLM enrichment
 - Added `LLMUsageLog` model in `app/models.py` and created new Alembic migration `01ba234950a3_add_llm_usage_logs_table.py` (`down_revision = 'd70954e45f7b'`).

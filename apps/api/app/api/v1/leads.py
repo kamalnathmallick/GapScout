@@ -1,5 +1,6 @@
 """Leads, outreach drafts, and events endpoints."""
 
+import contextlib
 import uuid
 from typing import Annotated
 
@@ -9,9 +10,19 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_workspace, get_db
-from app.models import Lead, OutreachDraft, OutreachEvent, Place, Workspace
+from app.models import (
+    DoNotContact,
+    Lead,
+    LeadFeature,
+    OutreachDraft,
+    OutreachEvent,
+    Place,
+    Workspace,
+)
 from app.schemas.common import PaginationMeta
 from app.schemas.leads import (
+    GeneratedDraftOut,
+    GenerateDraftRequest,
     LeadOut,
     LeadsListOut,
     LeadUpdateRequest,
@@ -21,6 +32,8 @@ from app.schemas.leads import (
     OutreachEventRequest,
 )
 from app.schemas.places import PlaceOut
+from app.services.dnc import add_to_dnc, is_lead_dnc
+from app.services.drafts import DNCBlockedError, enforce_length_caps, generate_and_save_draft
 
 router = APIRouter(prefix="/leads", tags=["leads"])
 
@@ -105,6 +118,7 @@ def list_leads(
     min_score: float | None = Query(default=None, ge=0.0, le=100.0),
     has_email: bool | None = Query(default=None),
     hex: str | None = Query(default=None, description="H3 index"),
+    include_dnc: bool = Query(default=False, description="Whether to include Do-Not-Contact leads"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> LeadsListOut:
@@ -117,6 +131,32 @@ def list_leads(
 
     if status:
         query = query.where(Lead.status == status.strip().lower())
+    elif not include_dnc:
+        # Hide DNC leads by default from standard views
+        query = query.where(Lead.status != "do_not_contact")
+
+    if not include_dnc:
+        dnc_emails = list(
+            db.scalars(
+                select(DoNotContact.email).where(
+                    DoNotContact.workspace_id == workspace.id,
+                    DoNotContact.email.is_not(None),
+                )
+            ).all()
+        )
+        if dnc_emails:
+            query = query.where(Place.email.not_in(dnc_emails))
+
+        dnc_domains = list(
+            db.scalars(
+                select(DoNotContact.domain).where(
+                    DoNotContact.workspace_id == workspace.id,
+                    DoNotContact.domain.is_not(None),
+                )
+            ).all()
+        )
+        if dnc_domains:
+            query = query.where(Place.website_domain.not_in(dnc_domains))
 
     if min_score is not None:
         query = query.where(Lead.final_score >= min_score)
@@ -191,6 +231,9 @@ def update_lead(
     if not lead or lead.workspace_id != workspace.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found.")
 
+    old_status = lead.status
+    place = db.get(Place, lead.place_id)
+
     if req.status is not None:
         st_clean = req.status.strip().lower()
         if st_clean not in ALLOWED_STATUSES:
@@ -200,14 +243,74 @@ def update_lead(
             )
         lead.status = st_clean
 
+        # If marked do_not_contact, automatically register on DNC list
+        if st_clean == "do_not_contact" and place:
+            with contextlib.suppress(ValueError):
+                add_to_dnc(
+                    session=db,
+                    workspace_id=workspace.id,
+                    email=place.email,
+                    domain=place.website_domain,
+                    phone=place.phone_e164,
+                    reason=f"Lead {lead.id} ({place.name}) set to do_not_contact",
+                )
+
+        # If transitioned to contacted, automatically freeze features_snapshot
+        if st_clean == "contacted" and old_status != "contacted":
+            # Fetch latest lead features
+            feature_row = db.execute(
+                select(LeadFeature)
+                .where(LeadFeature.lead_id == lead.id)
+                .order_by(LeadFeature.computed_at.desc())
+            ).scalars().first()
+
+            snapshot = feature_row.features if feature_row else {}
+            event = OutreachEvent(
+                workspace_id=workspace.id,
+                lead_id=lead.id,
+                event_type="contacted",
+                features_snapshot=snapshot,
+            )
+            db.add(event)
+
     if req.notes is not None:
         lead.notes = req.notes
 
     db.commit()
     db.refresh(lead)
 
-    place = db.get(Place, lead.place_id)
     return _build_lead_out(lead=lead, place=place)
+
+
+@router.post(
+    "/{lead_id}/generate-draft",
+    response_model=GeneratedDraftOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def generate_draft_endpoint(
+    lead_id: uuid.UUID,
+    req: GenerateDraftRequest,
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+) -> GeneratedDraftOut:
+    """Generate, validate, and record an outreach draft without sending."""
+    lead = db.get(Lead, lead_id)
+    if not lead or lead.workspace_id != workspace.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found.")
+
+    try:
+        draft_dict = generate_and_save_draft(
+            session=db,
+            lead_id=lead.id,
+            channel=req.channel,
+            tone=req.tone,
+            custom_offer=req.custom_offer,
+        )
+        return GeneratedDraftOut(**draft_dict)
+    except DNCBlockedError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post(
@@ -226,6 +329,13 @@ def create_lead_draft(
     if not lead or lead.workspace_id != workspace.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found.")
 
+    place = db.get(Place, lead.place_id)
+    if is_lead_dnc(db, lead, place):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Lead is on the Do-Not-Contact list. Outreach drafts are strictly prohibited.",
+        )
+
     channel = req.channel.strip().lower()
     if channel not in {"email", "chat"}:
         raise HTTPException(
@@ -233,11 +343,13 @@ def create_lead_draft(
             detail="Channel must be 'email' or 'chat'.",
         )
 
+    final_body = enforce_length_caps(channel, req.body)
+
     draft = OutreachDraft(
         workspace_id=workspace.id,
         lead_id=lead.id,
         channel=channel,
-        body=req.body.strip(),
+        body=final_body,
     )
     db.add(draft)
     db.commit()
@@ -262,11 +374,21 @@ def create_lead_event(
     if not lead or lead.workspace_id != workspace.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found.")
 
+    # If event_type is contacted and no snapshot was passed, freeze current features
+    snapshot = req.features_snapshot
+    if req.event_type.strip().lower() == "contacted" and snapshot is None:
+        feature_row = db.execute(
+            select(LeadFeature)
+            .where(LeadFeature.lead_id == lead.id)
+            .order_by(LeadFeature.computed_at.desc())
+        ).scalars().first()
+        snapshot = feature_row.features if feature_row else {}
+
     event = OutreachEvent(
         workspace_id=workspace.id,
         lead_id=lead.id,
         event_type=req.event_type.strip().lower(),
-        features_snapshot=req.features_snapshot,
+        features_snapshot=snapshot,
     )
     db.add(event)
     db.commit()

@@ -200,3 +200,88 @@ export interface HexMetricsResponse {
     }>;
   };
 }
+
+export interface ScoreComponent {
+  points: number;
+  max: number;
+  reason: string;
+}
+
+export interface ScoreBreakdown {
+  pain?: ScoreComponent;
+  fit?: ScoreComponent;
+  timing?: ScoreComponent;
+  reachability?: ScoreComponent;
+  evidence?: ScoreComponent;
+  total?: number;
+  [key: string]: unknown;
+}
+
+export interface OutreachDraft {
+  id: string;
+  lead_id: string;
+  channel: "email" | "chat";
+  body: string;
+  created_at: string;
+}
+
+export interface OutreachEvent {
+  id: string;
+  lead_id: string;
+  event_type: string;
+  occurred_at: string;
+  features_snapshot?: Record<string, unknown> | null;
+}
+
+export interface LeadOut {
+  id: string;
+  workspace_id: string;
+  place_id: string;
+  status:
+    | "new"
+    | "shortlisted"
+    | "contacted"
+    | "replied"
+    | "meeting"
+    | "converted"
+    | "rejected"
+    | "do_not_contact";
+  rule_score: number | null;
+  ml_score: number | null;
+  final_score: number | null;
+  score_breakdown: ScoreBreakdown;
+  notes: string | null;
+  place: PlaceOut | null;
+  drafts?: OutreachDraft[];
+  events?: OutreachEvent[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LeadsListOut {
+  items: LeadOut[];
+  pagination: PaginationMeta;
+}
+
+export interface GeneratedDraftOut {
+  id: string;
+  lead_id: string;
+  channel: string;
+  body: string;
+  word_count: number;
+  char_count: number;
+  mailto_link: string | null;
+  wa_link: string | null;
+  created_at: string;
+}
+
+export interface DNCOut {
+  id: string;
+  workspace_id: string;
+  email: string | null;
+  domain: string | null;
+  phone: string | null;
+  reason: string | null;
+  created_at: string;
+}
+

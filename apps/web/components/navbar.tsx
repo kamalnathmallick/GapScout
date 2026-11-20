@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { MapPin, Plus, LayoutDashboard, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { MapPin, Plus, LayoutDashboard, Settings as SettingsIcon, LogOut, Users } from "lucide-react";
 import { api } from "@/lib/api";
 
 export function Navbar() {
@@ -22,6 +22,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/jobs/new", label: "New Analysis", icon: Plus },
+    { href: "/leads", label: "Leads", icon: Users },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 

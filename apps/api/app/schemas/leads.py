@@ -39,6 +39,29 @@ class OutreachDraftOut(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class GenerateDraftRequest(BaseModel):
+    """Parameters for AI / grounded outreach draft generation."""
+
+    channel: str = Field(default="email", description="'email' or 'chat'")
+    tone: str = Field(default="direct", description="'direct', 'consultative', or 'casual'")
+    custom_offer: str | None = None
+
+
+class GeneratedDraftOut(BaseModel):
+    """Generated draft with grounded constraints and direct open links."""
+
+    id: uuid.UUID
+    lead_id: uuid.UUID
+    channel: str
+    body: str
+    word_count: int
+    char_count: int
+    mailto_link: str | None = None
+    wa_link: str | None = None
+    created_at: datetime
+
+
+
 class OutreachEventRequest(BaseModel):
     """Record an outreach event (e.g. contacted, replied)."""
 

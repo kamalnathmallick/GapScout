@@ -3,12 +3,18 @@
  */
 
 import {
+  DNCOut,
   GapSummaryOut,
+  GeneratedDraftOut,
   GridEstimateOut,
   HexMetricsResponse,
   JobCreateRequest,
   JobOut,
   JobProgressOut,
+  LeadOut,
+  LeadsListOut,
+  OutreachDraft,
+  OutreachEvent,
   PlacesListOut,
   TokenResponse,
   UserOut,
@@ -162,6 +168,98 @@ class ApiClient {
 
   async getGapSummary(jobId: string): Promise<GapSummaryOut> {
     return this.request<GapSummaryOut>(`/api/v1/gap/${jobId}/summary`);
+  }
+
+  // --- Lead & Outreach Endpoints ---
+
+  async listLeads(params?: {
+    status?: string;
+    min_score?: number;
+    has_email?: boolean;
+    hex?: string;
+    include_dnc?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<LeadsListOut> {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.min_score !== undefined) q.set("min_score", String(params.min_score));
+    if (params?.has_email !== undefined) q.set("has_email", String(params.has_email));
+    if (params?.hex) q.set("hex", params.hex);
+    if (params?.include_dnc !== undefined) q.set("include_dnc", String(params.include_dnc));
+    if (params?.limit) q.set("limit", String(params.limit));
+    if (params?.offset) q.set("offset", String(params.offset));
+
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    return this.request<LeadsListOut>(`/api/v1/leads${qs}`);
+  }
+
+  async getLead(leadId: string): Promise<LeadOut> {
+    return this.request<LeadOut>(`/api/v1/leads/${leadId}`);
+  }
+
+  async updateLead(
+    leadId: string,
+    payload: { status?: string; notes?: string }
+  ): Promise<LeadOut> {
+    return this.request<LeadOut>(`/api/v1/leads/${leadId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async generateDraft(
+    leadId: string,
+    payload: { channel: "email" | "chat"; tone?: string; custom_offer?: string }
+  ): Promise<GeneratedDraftOut> {
+    return this.request<GeneratedDraftOut>(`/api/v1/leads/${leadId}/generate-draft`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async createDraft(
+    leadId: string,
+    payload: { channel: "email" | "chat"; body: string }
+  ): Promise<OutreachDraft> {
+    return this.request<OutreachDraft>(`/api/v1/leads/${leadId}/drafts`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async createEvent(
+    leadId: string,
+    payload: { event_type: string; features_snapshot?: Record<string, unknown> }
+  ): Promise<OutreachEvent> {
+    return this.request<OutreachEvent>(`/api/v1/leads/${leadId}/events`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // --- Do-Not-Contact (DNC) Endpoints ---
+
+  async listDnc(): Promise<{ items: DNCOut[]; total: number }> {
+    return this.request<{ items: DNCOut[]; total: number }>("/api/v1/dnc");
+  }
+
+  async addToDnc(payload: {
+    email?: string;
+    domain?: string;
+    phone?: string;
+    reason?: string;
+  }): Promise<DNCOut> {
+    return this.request<DNCOut>("/api/v1/dnc", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async deleteDnc(entryId: string): Promise<void> {
+    return this.request<void>(`/api/v1/dnc/${entryId}`, {
+      method: "DELETE",
+    });
   }
 
   // --- Account Endpoints ---

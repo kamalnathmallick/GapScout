@@ -255,8 +255,16 @@ def test_data_retention_prunes_expired_raw_data(db_session: Session):
 # ==============================================================================
 # 5. Security Headers Tests
 # ==============================================================================
-def test_api_security_headers_present():
+def test_api_security_headers_present(monkeypatch):
     """Verify essential defensive security headers on API responses."""
+    import app.health as health_module
+    from app.health import CheckResult
+
+    monkeypatch.setattr(health_module, "check_db", lambda: CheckResult(status="ok", latency_ms=1.0))
+    monkeypatch.setattr(
+        health_module, "check_redis", lambda: CheckResult(status="ok", latency_ms=0.5)
+    )
+
     client = TestClient(app)
     response = client.get("/health")
     assert response.status_code == 200

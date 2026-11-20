@@ -141,6 +141,50 @@ def close_outreach_windows_task(days_window: int = 14, db_session: Any | None = 
         return _process(session)
 
 
+@celery_app.task(name="gapscout.retrain_workspace_models_task")
+def retrain_workspace_models_task(workspace_id_str: str) -> dict[str, Any]:
+    """Retrain ML model when enough new labelled outcomes exist and no jobs are active."""
+    from app.ml.pipeline import train_and_evaluate_models
+    from app.ml.registry import get_active_model
+    from app.models import SearchJob
+    from app.outcomes.dataset import build_training_dataset
+
+    workspace_id = uuid.UUID(workspace_id_str)
+    settings = get_settings()
+    retrain_every = getattr(settings, "ml_retrain_every", 25)
+
+    with SessionLocal() as session:
+        active_jobs = (
+            session.execute(
+                select(SearchJob.id).where(
+                    SearchJob.workspace_id == workspace_id,
+                    SearchJob.status.in_(["planning", "running"]),
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        if active_jobs:
+            logger.info("Search jobs active for %s. Skipping auto-retraining.", workspace_id)
+            return {"retrained": False, "reason": "active_job_running"}
+
+        dataset = build_training_dataset(session=session, workspace_id=workspace_id)
+        current_active = get_active_model(session, workspace_id)
+        prev_samples = current_active.n_samples if current_active else 0
+        delta = len(dataset) - prev_samples
+
+        if delta < retrain_every and current_active is not None:
+            return {"retrained": False, "reason": "insufficient_new_outcomes", "delta": delta}
+
+        result = train_and_evaluate_models(
+            dataset=dataset,
+            workspace_id=workspace_id,
+            session=session,
+        )
+        return {"retrained": True, "result": result}
+
+
 @celery_app.task(name="gapscout.trigger_post_scrape_pipeline")
 def trigger_post_scrape_pipeline(job_id: str) -> None:
     """Trigger cleaning and gap analysis pipelines after job completion."""

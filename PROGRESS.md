@@ -17,7 +17,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 11: LLM enrichment
 - [x] Prompt 12: Outreach workflow
 - [x] Prompt 13: Outcome logging and dataset builder
-- [ ] Prompt 14: ML training pipeline
+- [x] Prompt 14: ML training pipeline
 - [ ] Prompt 15: Model insights and active learning
 - [ ] Prompt 16: Auth, tenancy and settings
 - [ ] Prompt 17: Compliance and security hardening
@@ -29,15 +29,49 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
-### 2026-11-20 - Plan for Prompt 14: ML training pipeline
-- Implement cold-start gating in `app/ml/gating.py`: require >= 150 labelled outcomes and >= 20 positives; fallback to explainable rules.
-- Implement baseline regularized LogisticRegression (StandardScaler) and challenger HistGradientBoostingClassifier (LightGBM compatible) in `app/ml/pipeline.py`.
-- Add probability calibration using Platt scaling / isotonic regression with time-based splits.
-- Implement dynamic rule+ML blending function (weight scale 0.3 -> 0.8 as sample size increases).
-- Implement SHAP explanation engine in `app/ml/shap_explainer.py` extracting top-3 feature impacts per lead.
-- Support model registration, metrics tracking, and one-click rollback in `model_versions` table.
-- Implement feature drift checks comparing inference distributions against training snapshots.
-- Add comprehensive test suite in `tests/test_ml.py` proving planted signal recovery (AUC > 0.65), gating, blending, and rollback.
+### 2026-11-20 - Plan for Prompt 15: Model insights and active learning
+- Build model insights dashboard at `apps/web/app/models/page.tsx`:
+  - Active model version status, sample size, ROC-AUC, PR-AUC, Brier score, and precision@10 metric cards.
+  - Calibration curve chart and feature-importance bars.
+  - Version history table with one-click rollback.
+- Implement 'Why this score' explanation panel in `apps/web/components/leads/lead-drawer.tsx` combining 5-part rule breakdown and SHAP contributions.
+- Build active-learning queue (`apps/web/app/leads/active-learning/page.tsx` or tab) surfacing uncertain leads (probability 0.35-0.65) and high-opportunity leads with thin evidence.
+- Build side-by-side comparison view comparing rule-only ranking vs blended model ranking for top 20 leads.
+- Provide honest empty states displaying learning badge when cold-start threshold is not yet met.
+
+### 2026-11-20 - Prompt 14: ML training pipeline
+- Implemented cold-start gating in `app/ml/gating.py`:
+  - Enforces minimum 150 labelled outcomes and 20 positive replies before ML unlocking.
+  - Transparently explains required remaining counts while in rules-only mode.
+- Implemented ML training tournament in `app/ml/pipeline.py`:
+  - Extracts 19 numeric features and handles missing values with explicit median imputation.
+  - Trains standardized regularized `LogisticRegression` baseline with Platt scaling (`CalibratedClassifierCV`).
+  - Trains gradient-boosted `HistGradientBoostingClassifier` challenger with probability calibration.
+  - Performs time-based temporal splitting when sufficient chronological samples exist (stratified split fallback).
+  - Evaluates models on ROC-AUC, PR-AUC, Brier score, and precision@10.
+  - Selects the winning model based on validation ROC-AUC.
+- Implemented dynamic rule + ML blending in `app/ml/blending.py`:
+  - Configurable blend function scaling model weight smoothly from 0.30 at 150 samples to 0.80 at 1000+ samples.
+- Implemented SHAP explainability engine in `app/ml/shap_explainer.py`:
+  - Extracts top 3 feature impacts and plain-English reasons per lead for explainable ranking.
+- Implemented model registry and safe rollout in `app/ml/registry.py`:
+  - Persists artifacts to disk, logs metrics to `model_versions`, and automatically activates challenger only if it outperforms current model.
+  - Added one-click rollback function (`rollback_model_version`).
+- Implemented automated retraining Celery task in `app/tasks.py`:
+  - `retrain_workspace_models_task`: checks if 25+ new labelled outcomes exist; skips if a scrape job is active.
+- Implemented feature distribution drift check in `app/ml/drift.py`:
+  - Flags shifts exceeding 2.0 standard deviations between inference leads and training baselines.
+- Connected API endpoints in `app/api/v1/models.py`:
+  - `POST /api/v1/models/train` (runs tournament, supports force parameter)
+  - `POST /api/v1/models/{version_id}/rollback` (one-click rollback)
+  - `GET /api/v1/models/leads/{lead_id}/explanation` (SHAP top-3 contributions)
+- Added comprehensive test suite in `tests/test_ml.py` (6 tests passing):
+  - Verified cold-start gating logic.
+  - Verified planted signal recovery on synthetic data: model achieves ROC-AUC >= 0.70 and precision@10 >= 0.50.
+  - Verified rule + ML blending weight progression.
+  - Verified tournament activation rules and one-click rollback.
+  - Verified SHAP top-3 explanation generation.
+  - Verified feature distribution drift warnings.
 
 ### 2026-11-20 - Prompt 13: Outcome logging and dataset builder
 - Implemented outcome logging and CSV importer in `app/outcomes/logging.py`:

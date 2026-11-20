@@ -1,13 +1,17 @@
 """Model version and training endpoints."""
 
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_workspace, get_db
-from app.models import ModelVersion, Workspace
+from app.ml.pipeline import train_and_evaluate_models
+from app.ml.registry import get_active_model, rollback_model_version
+from app.ml.shap_explainer import explain_lead_features
+from app.models import LeadFeature, ModelVersion, Workspace
 from app.outcomes.dataset import build_training_dataset, get_dataset_health
 from app.schemas.models import (
     ActiveModelMetricsOut,
@@ -94,16 +98,90 @@ def trigger_model_training(
     db: Annotated[Session, Depends(get_db)],
 ) -> ActiveModelMetricsOut:
     """Trigger training pipeline for workspace outcome data."""
-    # Checked in Prompt 14 for minimum logged outcomes threshold
-    return ActiveModelMetricsOut(
-        has_active_model=False,
-        active_model=None,
-        fallback_mode="rules_only",
-        message=(
-            f"Training requested for '{req.algorithm}'. "
-            f"Minimum {req.min_samples} logged outcomes required."
-        ),
+    dataset = build_training_dataset(session=db, workspace_id=workspace.id)
+    result = train_and_evaluate_models(
+        dataset=dataset,
+        workspace_id=workspace.id,
+        session=db,
+        force=req.algorithm == "force",
     )
+
+    if not result.get("unlocked"):
+        return ActiveModelMetricsOut(
+            has_active_model=False,
+            active_model=None,
+            fallback_mode="rules_only",
+            message=result.get("message", "Cold-start threshold not met."),
+        )
+
+    active_m = get_active_model(db, workspace.id)
+    model_out = None
+    if active_m:
+        model_out = ModelVersionOut(
+            id=active_m.id,
+            workspace_id=active_m.workspace_id,
+            algorithm=active_m.algorithm,
+            trained_at=active_m.trained_at,
+            n_samples=active_m.n_samples,
+            metrics=active_m.metrics,
+            feature_list=[str(f) for f in active_m.feature_list],
+            is_active=active_m.is_active,
+        )
+
+    return ActiveModelMetricsOut(
+        has_active_model=True,
+        active_model=model_out,
+        fallback_mode="none",
+        message=result.get("message", "Model trained successfully."),
+    )
+
+
+@router.post("/{version_id}/rollback", response_model=ModelVersionOut)
+def rollback_model_endpoint(
+    version_id: uuid.UUID,
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+) -> ModelVersionOut:
+    """Roll back active model to a previous verified version."""
+    try:
+        model = rollback_model_version(
+            session=db,
+            workspace_id=workspace.id,
+            target_version_id=version_id,
+        )
+        return ModelVersionOut(
+            id=model.id,
+            workspace_id=model.workspace_id,
+            algorithm=model.algorithm,
+            trained_at=model.trained_at,
+            n_samples=model.n_samples,
+            metrics=model.metrics,
+            feature_list=[str(f) for f in model.feature_list],
+            is_active=model.is_active,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
+@router.get("/leads/{lead_id}/explanation")
+def get_lead_explanation(
+    lead_id: uuid.UUID,
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+) -> dict:
+    """Get top 3 SHAP feature contributions for a lead."""
+    feat = db.execute(
+        select(LeadFeature)
+        .where(
+            LeadFeature.lead_id == lead_id,
+            LeadFeature.workspace_id == workspace.id,
+        )
+        .order_by(LeadFeature.computed_at.desc())
+    ).scalars().first()
+
+    features_dict = feat.features if feat else {}
+    explanations = explain_lead_features(features_dict)
+    return {"lead_id": str(lead_id), "explanations": explanations}
 
 
 @router.get("/dataset/health", response_model=DatasetHealthOut)

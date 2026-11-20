@@ -296,3 +296,73 @@ export interface DatasetHealthOut {
   labels_needed: number;
   positives_needed: number;
 }
+
+export interface ModelVersionOut {
+  id: string;
+  workspace_id: string;
+  algorithm: string;
+  trained_at: string;
+  n_samples: number;
+  metrics: {
+    roc_auc?: number;
+    pr_auc?: number;
+    precision_at_10?: number;
+    brier_score?: number;
+    lift_over_rules?: number;
+    n_samples?: number;
+    baseline_auc?: number;
+    challenger_auc?: number;
+    calibration_points?: { prob: number; actual: number }[];
+    roc_points?: { fpr: number; tpr: number }[];
+    feature_importances?: Record<string, number>;
+  };
+  feature_list: string[];
+  is_active: boolean;
+}
+
+export interface ActiveModelMetricsOut {
+  has_active_model: boolean;
+  active_model: ModelVersionOut | null;
+  fallback_mode: string;
+  message: string;
+}
+
+export interface ActiveLearningLeadOut {
+  lead_id: string;
+  place_id: string;
+  name: string;
+  category: string | null;
+  rule_score: number | null;
+  ml_score: number | null;
+  final_score: number | null;
+  reason: string;
+  learning_priority: "high" | "medium";
+  review_count: number;
+  rating: number | null;
+  has_website: boolean;
+  has_email: boolean;
+}
+
+export interface RankingComparisonItem {
+  lead_id: string;
+  place_name: string;
+  category: string | null;
+  rule_score: number;
+  rule_rank: number;
+  ml_score: number | null;
+  ml_rank: number | null;
+  final_score: number;
+  final_rank: number;
+  rank_shift: number;
+  shift_direction: "up" | "down" | "same";
+}
+
+export interface LeadExplanationOut {
+  lead_id: string;
+  explanations: {
+    feature: string;
+    impact: number;
+    direction: "positive" | "negative";
+    reason: string;
+  }[];
+}

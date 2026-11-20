@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Users, ExternalLink, ChevronRight, Star, Mail, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import { Users, ExternalLink, ChevronRight, Star, Mail, RefreshCw, Brain } from "lucide-react";
 import { LeadOut } from "@/lib/types";
 import { api } from "@/lib/api";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -117,14 +118,25 @@ export default function LeadsPage() {
               protection.
             </p>
           </div>
-          <button
-            onClick={() => fetchLeads()}
-            disabled={loading}
-            className="self-start md:self-auto px-3.5 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg text-xs font-medium text-gray-300 flex items-center gap-2 transition-colors"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin text-indigo-400" : ""}`} />
-            <span>Refresh</span>
-          </button>
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <Link
+              href="/leads/active-learning"
+              className="px-3.5 py-2 bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-800/80 rounded-lg text-xs font-semibold text-indigo-300 flex items-center gap-2 transition-colors"
+            >
+              <Brain className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Active-Learning Queue</span>
+            </Link>
+            <button
+              onClick={() => fetchLeads()}
+              disabled={loading}
+              className="px-3.5 py-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 rounded-lg text-xs font-medium text-gray-300 flex items-center gap-2 transition-colors"
+            >
+              <RefreshCw
+                className={`w-3.5 h-3.5 ${loading ? "animate-spin text-indigo-400" : ""}`}
+              />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* Dataset Health & ML Unlock Status Card */}

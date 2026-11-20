@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   X,
   MapPin,
@@ -12,6 +12,9 @@ import {
   ShieldAlert,
   Clock,
   BarChart2,
+  Brain,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 import { LeadOut } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -39,6 +42,34 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
   const [updating, setUpdating] = useState(false);
   const [notes, setNotes] = useState(lead?.notes || "");
   const [savingNotes, setSavingNotes] = useState(false);
+  const [explanations, setExplanations] = useState<
+    {
+      feature: string;
+      impact: number;
+      direction: "positive" | "negative";
+      reason: string;
+    }[]
+  >([]);
+
+  useEffect(() => {
+    let ignore = false;
+    if (!lead) return;
+    const leadId = lead.id;
+    async function fetchExpl() {
+      try {
+        const res = await api.getLeadExplanation(leadId);
+        if (!ignore && res?.explanations) {
+          setExplanations(res.explanations);
+        }
+      } catch {
+        if (!ignore) setExplanations([]);
+      }
+    }
+    void fetchExpl();
+    return () => {
+      ignore = true;
+    };
+  }, [lead?.id]);
 
   if (!lead) return null;
 
@@ -268,30 +299,108 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
               </div>
             </div>
 
-            {/* Score Breakdown Popover/Section */}
-            <div className="rounded-xl bg-gray-900 border border-gray-800 p-4 space-y-3">
-              <h4 className="font-semibold text-gray-300 text-xs uppercase tracking-wider">
-                Score Breakdown (0 - 100)
-              </h4>
-              <div className="space-y-2 text-xs">
-                {Object.entries(lead.score_breakdown || {}).map(([key, item]) => {
-                  if (typeof item !== "object" || item === null) return null;
-                  const comp = item as { points?: number; max?: number; reason?: string };
-                  return (
-                    <div
-                      key={key}
-                      className="p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80"
-                    >
-                      <div className="flex items-center justify-between font-medium text-gray-200">
-                        <span className="capitalize">{key}</span>
-                        <span className="text-indigo-400 font-mono">
-                          +{comp.points ?? 0} / {comp.max ?? "-"} pts
-                        </span>
+            {/* Why This Score (Rule Engine + ML SHAP Explanations) */}
+            <div className="rounded-xl bg-gray-900 border border-gray-800 p-4 space-y-4">
+              <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+                <div className="flex items-center gap-2">
+                  <BarChart2 className="w-4 h-4 text-indigo-400" />
+                  <h4 className="font-semibold text-gray-200 text-xs uppercase tracking-wider">
+                    Why This Score ({lead.final_score !== null ? Math.round(lead.final_score) : "-"}
+                    /100)
+                  </h4>
+                </div>
+                {lead.ml_score !== null ? (
+                  <span className="text-[11px] font-semibold text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
+                    ML Probability: {Math.round(lead.ml_score * 100)}%
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-medium text-amber-300 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">
+                    Rule-Based Ranking
+                  </span>
+                )}
+              </div>
+
+              {/* 1. Rule Engine Components */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider block">
+                  Rule Engine Contributions
+                </span>
+                <div className="grid grid-cols-1 gap-2 text-xs">
+                  {Object.entries(lead.score_breakdown || {}).map(([key, item]) => {
+                    if (typeof item !== "object" || item === null) return null;
+                    const comp = item as { points?: number; max?: number; reason?: string };
+                    return (
+                      <div
+                        key={key}
+                        className="p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80"
+                      >
+                        <div className="flex items-center justify-between font-medium text-gray-200">
+                          <span className="capitalize">{key.replace(/_/g, " ")}</span>
+                          <span className="text-indigo-400 font-mono">
+                            +{comp.points ?? 0} / {comp.max ?? "-"} pts
+                          </span>
+                        </div>
+                        {comp.reason && (
+                          <p className="text-gray-400 text-[11px] mt-0.5 leading-relaxed">
+                            {comp.reason}
+                          </p>
+                        )}
                       </div>
-                      {comp.reason && <p className="text-gray-400 text-xs mt-1">{comp.reason}</p>}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. ML SHAP Explainability Contributions */}
+              <div className="space-y-2 pt-2 border-t border-gray-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>ML Decision Drivers (SHAP Top Contributions)</span>
+                  </span>
+                </div>
+
+                {explanations && explanations.length > 0 ? (
+                  <div className="space-y-2">
+                    {explanations.map((exp, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-lg bg-gray-950/80 border border-gray-800/80 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-gray-200 capitalize">
+                            {exp.feature.replace(/_/g, " ")}
+                          </span>
+                          <span
+                            className={`flex items-center gap-1 text-[11px] font-mono font-semibold px-2 py-0.5 rounded ${
+                              exp.direction === "positive"
+                                ? "bg-emerald-950/70 text-emerald-300 border border-emerald-800/60"
+                                : "bg-amber-950/70 text-amber-300 border border-amber-800/60"
+                            }`}
+                          >
+                            {exp.direction === "positive" ? (
+                              <TrendingUp className="w-3 h-3" />
+                            ) : (
+                              <TrendingDown className="w-3 h-3" />
+                            )}
+                            <span>
+                              {exp.impact > 0 ? `+${exp.impact.toFixed(2)}` : exp.impact.toFixed(2)}
+                            </span>
+                          </span>
+                        </div>
+                        <p className="text-gray-400 text-[11px] leading-relaxed">{exp.reason}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-lg bg-gray-950/60 border border-gray-800 text-xs text-gray-400 flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span>
+                      Model is in cold-start mode. Rule-based scores govern ranking until 150
+                      verified outcomes are logged.
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 

@@ -18,7 +18,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 12: Outreach workflow
 - [x] Prompt 13: Outcome logging and dataset builder
 - [x] Prompt 14: ML training pipeline
-- [ ] Prompt 15: Model insights and active learning
+- [x] Prompt 15: Model insights and active learning
 - [ ] Prompt 16: Auth, tenancy and settings
 - [ ] Prompt 17: Compliance and security hardening
 - [ ] Prompt 18: Testing and quality
@@ -39,15 +39,32 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
   - Backend: `ruff check` (PASS), `ruff format --check` (PASS), `pytest` (323 tests passed).
   - Web: `npm run lint` (PASS), `npm run format:check` (PASS), `npm run typecheck` (PASS), `npm run build` (PASS), `npm test` (12 tests passed).
 
-### 2026-11-20 - Plan for Prompt 15: Model insights and active learning
-- Build model insights dashboard at `apps/web/app/models/page.tsx`:
-  - Active model version status, sample size, ROC-AUC, PR-AUC, Brier score, and precision@10 metric cards.
-  - Calibration curve chart and feature-importance bars.
-  - Version history table with one-click rollback.
-- Implement 'Why this score' explanation panel in `apps/web/components/leads/lead-drawer.tsx` combining 5-part rule breakdown and SHAP contributions.
-- Build active-learning queue (`apps/web/app/leads/active-learning/page.tsx` or tab) surfacing uncertain leads (probability 0.35-0.65) and high-opportunity leads with thin evidence.
-- Build side-by-side comparison view comparing rule-only ranking vs blended model ranking for top 20 leads.
-- Provide honest empty states displaying learning badge when cold-start threshold is not yet met.
+### 2026-11-20 - Plan for Prompt 16: Auth, tenancy and settings
+- Implement email verification token stub and password reset flow in `app/api/v1/auth.py` and `app/services/auth.py` (logging link in dev).
+- Implement database-layer workspace isolation hardening (query enforcement & RLS / session scoping) verified by cross-tenant access tests.
+- Build comprehensive Settings pages: Offer Profile editor, scoring-weights editor (with reset to default weights), workspace caps (cells, places, daily LLM cost), data retention days, and API usage stats.
+- Implement account data export (full JSON and CSV) and irreversible delete-my-data action with confirmation.
+- Add new Alembic migration for any new database state/columns required (e.g. workspace caps, settings).
+- Add unit tests in `tests/test_auth_tenancy.py` proving cross-tenant isolation, export, and deletion.
+
+### 2026-11-20 - Prompt 15: Model insights and active learning
+- Added active learning and ranking comparison endpoints in `app/api/v1/models.py`:
+  - `GET /api/v1/models/active-learning`: prioritizes decision-boundary uncertain leads (0.35-0.65 likelihood) and high-opportunity thin-evidence leads.
+  - `GET /api/v1/models/ranking-comparison`: returns side-by-side comparison of rule-only rank vs model-blended rank for top 20 leads with rank shift indicators.
+- Built Model Insights page at `apps/web/app/models/page.tsx`:
+  - Active model status, algorithm, training timestamp, and sample size.
+  - KPI metric cards: ROC-AUC (vs 0.70 benchmark), PR-AUC, Precision@10 with lift over rules, and Brier calibration loss.
+  - Interactive SVG ROC Curve and Calibration Reliability plots.
+  - Feature-importance horizontal bar charts showing signal weights.
+  - Full model version history table with one-click rollback functionality.
+  - Honest cold-start empty state explaining rule-based ranking and displaying live dataset health progress toward ML unlock.
+- Built Active-Learning Queue at `apps/web/app/leads/active-learning/page.tsx`:
+  - Prioritizes uncertain and thin-evidence candidates to maximize training information gain.
+  - Added shortcut link on Leads page header.
+- Implemented 'Why this score' panel in `apps/web/components/leads/lead-drawer.tsx`:
+  - Combines 5-component rule breakdown and SHAP top feature contributions in plain English with impact direction badges.
+- Updated main navigation in `apps/web/components/navbar.tsx` with ML Model link.
+- Added comprehensive unit tests in `tests/test_ml.py` verifying active-learning prioritization and ranking comparison endpoint calculations (324 passed).
 
 ### 2026-11-20 - Prompt 14: ML training pipeline
 - Implemented cold-start gating in `app/ml/gating.py`:

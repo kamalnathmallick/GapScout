@@ -3,6 +3,8 @@
  */
 
 import {
+  ActiveLearningLeadOut,
+  ActiveModelMetricsOut,
   DNCOut,
   DatasetHealthOut,
   GapSummaryOut,
@@ -12,11 +14,14 @@ import {
   JobCreateRequest,
   JobOut,
   JobProgressOut,
+  LeadExplanationOut,
   LeadOut,
   LeadsListOut,
+  ModelVersionOut,
   OutreachDraft,
   OutreachEvent,
   PlacesListOut,
+  RankingComparisonItem,
   TokenResponse,
   UserOut,
 } from "./types";
@@ -260,6 +265,41 @@ class ApiClient {
 
   async getDatasetHealth(): Promise<DatasetHealthOut> {
     return this.request<DatasetHealthOut>("/api/v1/models/dataset/health");
+  }
+
+  // --- ML Model & Active Learning Endpoints ---
+
+  async listModels(): Promise<ModelVersionOut[]> {
+    return this.request<ModelVersionOut[]>("/api/v1/models");
+  }
+
+  async getActiveModelMetrics(): Promise<ActiveModelMetricsOut> {
+    return this.request<ActiveModelMetricsOut>("/api/v1/models/active/metrics");
+  }
+
+  async trainModel(force?: boolean): Promise<ActiveModelMetricsOut> {
+    return this.request<ActiveModelMetricsOut>("/api/v1/models/train", {
+      method: "POST",
+      body: JSON.stringify({ algorithm: force ? "force" : "lightgbm" }),
+    });
+  }
+
+  async rollbackModel(versionId: string): Promise<ModelVersionOut> {
+    return this.request<ModelVersionOut>(`/api/v1/models/${versionId}/rollback`, {
+      method: "POST",
+    });
+  }
+
+  async getLeadExplanation(leadId: string): Promise<LeadExplanationOut> {
+    return this.request<LeadExplanationOut>(`/api/v1/models/leads/${leadId}/explanation`);
+  }
+
+  async getActiveLearningQueue(): Promise<ActiveLearningLeadOut[]> {
+    return this.request<ActiveLearningLeadOut[]>("/api/v1/models/active-learning");
+  }
+
+  async getRankingComparison(): Promise<RankingComparisonItem[]> {
+    return this.request<RankingComparisonItem[]>("/api/v1/models/ranking-comparison");
   }
 
   // --- Do-Not-Contact (DNC) Endpoints ---

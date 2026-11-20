@@ -1,7 +1,7 @@
 """Model version and training endpoints."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -11,12 +11,14 @@ from app.api.deps import get_current_workspace, get_db
 from app.ml.pipeline import train_and_evaluate_models
 from app.ml.registry import get_active_model, rollback_model_version
 from app.ml.shap_explainer import explain_lead_features
-from app.models import LeadFeature, ModelVersion, Workspace
+from app.models import Lead, LeadFeature, ModelVersion, Place, Workspace
 from app.outcomes.dataset import build_training_dataset, get_dataset_health
 from app.schemas.models import (
+    ActiveLearningLeadOut,
     ActiveModelMetricsOut,
     ModelTrainRequest,
     ModelVersionOut,
+    RankingComparisonItem,
 )
 from app.schemas.outcomes import DatasetHealthOut
 
@@ -206,3 +208,123 @@ def export_training_dataset(
     """Export leak-free training dataset containing snapshotted features."""
     dataset = build_training_dataset(session=db, workspace_id=workspace.id)
     return {"items": dataset, "total": len(dataset)}
+
+
+@router.get("/active-learning", response_model=list[ActiveLearningLeadOut])
+def get_active_learning_queue(
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: int = 20,
+) -> list[ActiveLearningLeadOut]:
+    """Retrieve leads with highest learning value for active exploration."""
+    stmt = (
+        select(Lead, Place)
+        .join(Place, Lead.place_id == Place.id)
+        .where(
+            Lead.workspace_id == workspace.id,
+            Lead.status.in_(["new", "shortlisted"]),
+        )
+    )
+    results = db.execute(stmt).all()
+
+    items: list[dict[str, Any]] = []
+    for lead, place in results:
+        ml_score = lead.ml_score
+        rule_score = lead.rule_score or 50.0
+
+        # Check for model uncertainty (probability between 0.35 and 0.65)
+        is_uncertain = ml_score is not None and (0.35 <= ml_score <= 0.65)
+        # Check for high rule score with thin evidence (few reviews or missing website/phone)
+        is_thin_evidence = rule_score >= 60.0 and (
+            place.review_count <= 5 or not place.website or not place.email
+        )
+
+        if is_uncertain or is_thin_evidence:
+            if is_uncertain and ml_score is not None:
+                reason = (
+                    f"High model uncertainty ({int(ml_score * 100)}% reply probability) "
+                    "— outcome provides maximum training information."
+                )
+                priority = "high"
+            else:
+                reason = (
+                    f"High rule score ({int(rule_score)}) with thin evidence "
+                    f"({place.review_count} reviews) — verifies niche market opportunity."
+                )
+                priority = "medium"
+
+            items.append(
+                {
+                    "lead_id": lead.id,
+                    "place_id": place.id,
+                    "name": place.name,
+                    "category": place.normalized_category or place.category,
+                    "rule_score": lead.rule_score,
+                    "ml_score": lead.ml_score,
+                    "final_score": lead.final_score,
+                    "reason": reason,
+                    "learning_priority": priority,
+                    "review_count": place.review_count,
+                    "rating": place.rating,
+                    "has_website": bool(place.website),
+                    "has_email": bool(place.email),
+                }
+            )
+
+    items.sort(
+        key=lambda x: (
+            0 if x["learning_priority"] == "high" else 1,
+            -(x["final_score"] or x["rule_score"] or 0),
+        )
+    )
+    return [ActiveLearningLeadOut(**item) for item in items[:limit]]
+
+
+@router.get("/ranking-comparison", response_model=list[RankingComparisonItem])
+def get_ranking_comparison(
+    workspace: Annotated[Workspace, Depends(get_current_workspace)],
+    db: Annotated[Session, Depends(get_db)],
+    limit: int = 20,
+) -> list[RankingComparisonItem]:
+    """Compare top leads ranked by pure rules vs model-blended final score."""
+    stmt = (
+        select(Lead, Place)
+        .join(Place, Lead.place_id == Place.id)
+        .where(Lead.workspace_id == workspace.id)
+    )
+    rows = db.execute(stmt).all()
+    if not rows:
+        return []
+
+    # Rank by rule score
+    sorted_by_rule = sorted(rows, key=lambda r: r[0].rule_score or 0.0, reverse=True)
+    rule_ranks = {lead.id: idx + 1 for idx, (lead, _) in enumerate(sorted_by_rule)}
+
+    # Rank by final blended score
+    sorted_by_final = sorted(rows, key=lambda r: r[0].final_score or 0.0, reverse=True)
+    final_ranks = {lead.id: idx + 1 for idx, (lead, _) in enumerate(sorted_by_final)}
+
+    comparison: list[RankingComparisonItem] = []
+    for lead, place in sorted_by_final[:limit]:
+        r_rank = rule_ranks.get(lead.id, 999)
+        f_rank = final_ranks.get(lead.id, 999)
+        shift = r_rank - f_rank
+        direction = "up" if shift > 0 else ("down" if shift < 0 else "same")
+
+        comparison.append(
+            RankingComparisonItem(
+                lead_id=lead.id,
+                place_name=place.name,
+                category=place.normalized_category or place.category,
+                rule_score=round(lead.rule_score or 0.0, 1),
+                rule_rank=r_rank,
+                ml_score=round(lead.ml_score, 3) if lead.ml_score is not None else None,
+                ml_rank=None,
+                final_score=round(lead.final_score or 0.0, 1),
+                final_rank=f_rank,
+                rank_shift=shift,
+                shift_direction=direction,
+            )
+        )
+
+    return comparison

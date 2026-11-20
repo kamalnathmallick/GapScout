@@ -5,7 +5,10 @@ import uuid
 
 import numpy as np
 import pytest
+from fastapi.testclient import TestClient
 
+from app.api.deps import get_current_workspace, get_db
+from app.main import app
 from app.ml.blending import compute_blended_score
 from app.ml.drift import check_feature_drift
 from app.ml.gating import check_cold_start_gating
@@ -16,7 +19,7 @@ from app.ml.registry import (
     save_and_register_model,
 )
 from app.ml.shap_explainer import explain_lead_features
-from app.models import Workspace
+from app.models import Lead, Place, Workspace
 
 
 @pytest.fixture
@@ -224,3 +227,79 @@ def test_drift_detection_warning():
     assert drift_report["has_drift"] is True
     assert len(drift_report["warnings"]) >= 1
     assert "rating" in drift_report["warnings"][0]
+
+
+def test_active_learning_and_ranking_comparison_endpoints(db_session, workspace):
+    """Verify active learning queue prioritizes uncertain leads and comparison calculates shifts."""
+    client = TestClient(app)
+    app.dependency_overrides[get_current_workspace] = lambda: workspace
+    app.dependency_overrides[get_db] = lambda: db_session
+
+    try:
+        # Create test places and leads
+        p1 = Place(
+            workspace_id=workspace.id,
+            provider="fake",
+            provider_place_id=f"pl_{uuid.uuid4().hex[:8]}",
+            name="Uncertain Cafe",
+            review_count=50,
+            rating=4.2,
+            website="https://uncertain.example.com",
+            email="owner@uncertain.example.com",
+        )
+        p2 = Place(
+            workspace_id=workspace.id,
+            provider="fake",
+            provider_place_id=f"pl_{uuid.uuid4().hex[:8]}",
+            name="Thin Evidence Salon",
+            review_count=2,  # Thin evidence!
+            rating=4.8,
+            website=None,
+            email=None,
+        )
+        db_session.add_all([p1, p2])
+        db_session.flush()
+
+        lead1 = Lead(
+            workspace_id=workspace.id,
+            place_id=p1.id,
+            status="new",
+            rule_score=60.0,
+            ml_score=0.48,  # Boundary uncertainty (0.35 - 0.65)
+            final_score=54.0,
+        )
+        lead2 = Lead(
+            workspace_id=workspace.id,
+            place_id=p2.id,
+            status="new",
+            rule_score=75.0,  # High rule score with thin evidence
+            ml_score=None,
+            final_score=75.0,
+        )
+        db_session.add_all([lead1, lead2])
+        db_session.commit()
+
+        # 1. Test Active Learning endpoint
+        res = client.get("/api/v1/models/active-learning")
+        assert res.status_code == 200
+        items = res.json()
+        assert len(items) >= 2
+        lead_ids = [i["lead_id"] for i in items]
+        assert str(lead1.id) in lead_ids
+        assert str(lead2.id) in lead_ids
+        uncertain_item = next(i for i in items if i["lead_id"] == str(lead1.id))
+        assert uncertain_item["learning_priority"] == "high"
+        assert "uncertainty" in uncertain_item["reason"].lower()
+
+        # 2. Test Ranking Comparison endpoint
+        cmp_res = client.get("/api/v1/models/ranking-comparison")
+        assert cmp_res.status_code == 200
+        cmp_items = cmp_res.json()
+        assert len(cmp_items) >= 2
+        for item in cmp_items:
+            assert "rule_rank" in item
+            assert "final_rank" in item
+            assert "rank_shift" in item
+            assert item["shift_direction"] in ["up", "down", "same"]
+    finally:
+        app.dependency_overrides.clear()

@@ -9,6 +9,7 @@ import {
   Settings as SettingsIcon,
   LogOut,
   Users,
+  Brain,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -30,6 +31,7 @@ export function Navbar() {
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/jobs/new", label: "New Analysis", icon: Plus },
     { href: "/leads", label: "Leads", icon: Users },
+    { href: "/models", label: "ML Model", icon: Brain },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
   ];
 

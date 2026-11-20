@@ -170,14 +170,18 @@ def get_lead_explanation(
     db: Annotated[Session, Depends(get_db)],
 ) -> dict:
     """Get top 3 SHAP feature contributions for a lead."""
-    feat = db.execute(
-        select(LeadFeature)
-        .where(
-            LeadFeature.lead_id == lead_id,
-            LeadFeature.workspace_id == workspace.id,
+    feat = (
+        db.execute(
+            select(LeadFeature)
+            .where(
+                LeadFeature.lead_id == lead_id,
+                LeadFeature.workspace_id == workspace.id,
+            )
+            .order_by(LeadFeature.computed_at.desc())
         )
-        .order_by(LeadFeature.computed_at.desc())
-    ).scalars().first()
+        .scalars()
+        .first()
+    )
 
     features_dict = feat.features if feat else {}
     explanations = explain_lead_features(features_dict)

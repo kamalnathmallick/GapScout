@@ -60,9 +60,7 @@ def delete_dnc_entry(
     """Remove an entry from the DNC list."""
     entry = db.get(DoNotContact, entry_id)
     if not entry or entry.workspace_id != workspace.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="DNC entry not found."
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="DNC entry not found.")
 
     db.delete(entry)
     db.commit()

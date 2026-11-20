@@ -100,10 +100,10 @@ def build_deterministic_draft(
         first_issue = website_audit["audit"]["top_issues"][0]
         citation = f"saw that your website could benefit from addressing {first_issue.lower()}"
     elif not place.website:
-        citation = "noticed your business currently doesn't have a website listed on Maps"
+        citation = "noticed your business currently doesn't have an official website listed on Maps"
     elif place.rating and place.rating < 4.0:
         citation = (
-            f"saw your Google rating is {place.rating:.1f}/5 across "
+            f"saw your current Google rating is {place.rating:.1f}/5 across "
             f"{place.review_count or '[N]'} reviews"
         )
     else:
@@ -185,9 +185,7 @@ def generate_and_save_draft(
 
     # 3. Fetch enrichments (if any)
     enrichment_rows = (
-        session.execute(select(Enrichment).where(Enrichment.place_id == place.id))
-        .scalars()
-        .all()
+        session.execute(select(Enrichment).where(Enrichment.place_id == place.id)).scalars().all()
     )
     enrichments_map: dict[str, Any] = {e.kind: e.content for e in enrichment_rows}
 

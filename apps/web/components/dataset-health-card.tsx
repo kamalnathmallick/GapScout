@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Brain, CheckCircle2, Lock, TrendingUp, AlertCircle, RefreshCw } from "lucide-react";
+import { Brain, CheckCircle2, Lock, RefreshCw } from "lucide-react";
 import { api } from "@/lib/api";
 
 export interface DatasetHealth {
@@ -34,7 +34,21 @@ export function DatasetHealthCard() {
   };
 
   useEffect(() => {
-    fetchHealth();
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await api.getDatasetHealth();
+        if (!ignore) setHealth(res);
+      } catch {
+        if (!ignore) setHealth(null);
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    }
+    void load();
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   if (!health && !loading) return null;
@@ -74,7 +88,8 @@ export function DatasetHealthCard() {
       </div>
 
       <p className="text-xs text-gray-400">
-        To activate the self-improving ML ranker, log verified outreach outcomes (replies within 14 days or closed windows).
+        To activate the self-improving ML ranker, log verified outreach outcomes (replies within 14
+        days or closed windows).
       </p>
 
       {/* Metric Counters */}
@@ -83,7 +98,10 @@ export function DatasetHealthCard() {
           <span className="text-gray-500 block mb-0.5">Labelled Outcomes</span>
           <span className="text-lg font-bold text-white font-mono">
             {health?.total_labelled ?? 0}
-            <span className="text-xs text-gray-500 font-normal"> / {health?.min_labels_required ?? 150}</span>
+            <span className="text-xs text-gray-500 font-normal">
+              {" "}
+              / {health?.min_labels_required ?? 150}
+            </span>
           </span>
         </div>
 
@@ -91,7 +109,10 @@ export function DatasetHealthCard() {
           <span className="text-gray-500 block mb-0.5">Positive Replies</span>
           <span className="text-lg font-bold text-emerald-400 font-mono">
             {health?.positives_count ?? 0}
-            <span className="text-xs text-gray-500 font-normal"> / {health?.min_positives_required ?? 20}</span>
+            <span className="text-xs text-gray-500 font-normal">
+              {" "}
+              / {health?.min_positives_required ?? 20}
+            </span>
           </span>
         </div>
 

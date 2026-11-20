@@ -178,9 +178,7 @@ def test_status_pipeline_and_features_snapshot_freeze(db_session, workspace_and_
         assert data["status"] == "contacted"
 
         events = (
-            db_session.query(OutreachEvent)
-            .filter_by(lead_id=lead.id, event_type="contacted")
-            .all()
+            db_session.query(OutreachEvent).filter_by(lead_id=lead.id, event_type="contacted").all()
         )
         assert len(events) >= 1
         snapshot = events[0].features_snapshot
@@ -193,9 +191,7 @@ def test_status_pipeline_and_features_snapshot_freeze(db_session, workspace_and_
         assert res.status_code == 200
 
         dnc_entry = (
-            db_session.query(DoNotContact)
-            .filter_by(workspace_id=ws.id, email=place.email)
-            .first()
+            db_session.query(DoNotContact).filter_by(workspace_id=ws.id, email=place.email).first()
         )
         assert dnc_entry is not None
 

@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { MapPin, Plus, LayoutDashboard, Settings as SettingsIcon, LogOut, Users } from "lucide-react";
+import {
+  MapPin,
+  Plus,
+  LayoutDashboard,
+  Settings as SettingsIcon,
+  LogOut,
+  Users,
+} from "lucide-react";
 import { api } from "@/lib/api";
 
 export function Navbar() {

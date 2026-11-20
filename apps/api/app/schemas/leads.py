@@ -61,7 +61,6 @@ class GeneratedDraftOut(BaseModel):
     created_at: datetime
 
 
-
 class OutreachEventRequest(BaseModel):
     """Record an outreach event (e.g. contacted, replied)."""
 

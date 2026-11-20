@@ -51,11 +51,15 @@ def log_lead_outcome(
 
     if not contacted_event:
         # Snapshot features retroactively at this moment
-        feat_row = session.execute(
-            select(LeadFeature)
-            .where(LeadFeature.lead_id == lead.id)
-            .order_by(LeadFeature.computed_at.desc())
-        ).scalars().first()
+        feat_row = (
+            session.execute(
+                select(LeadFeature)
+                .where(LeadFeature.lead_id == lead.id)
+                .order_by(LeadFeature.computed_at.desc())
+            )
+            .scalars()
+            .first()
+        )
         snapshot = feat_row.features if feat_row else {}
         init_contact = OutreachEvent(
             workspace_id=lead.workspace_id,
@@ -81,9 +85,7 @@ def log_lead_outcome(
         lead.status = clean_outcome
     if notes:
         lead.notes = (
-            f"{lead.notes}\n[Outcome {clean_outcome}]: {notes}".strip()
-            if lead.notes
-            else notes
+            f"{lead.notes}\n[Outcome {clean_outcome}]: {notes}".strip() if lead.notes else notes
         )
 
     session.commit()

@@ -32,11 +32,7 @@ def check_feature_drift(
             for r in training_dataset
             if key in r.get("features", {}) and r["features"][key] is not None
         ]
-        inf_vals = [
-            float(f[key])
-            for f in inference_features
-            if key in f and f[key] is not None
-        ]
+        inf_vals = [float(f[key]) for f in inference_features if key in f and f[key] is not None]
 
         if len(train_vals) < 10 or len(inf_vals) < 10:
             continue

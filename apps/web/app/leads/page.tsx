@@ -1,19 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import {
-  Users,
-  Search,
-  Filter,
-  CheckCircle2,
-  XCircle,
-  ExternalLink,
-  ChevronRight,
-  Shield,
-  Star,
-  Mail,
-  RefreshCw,
-} from "lucide-react";
+import { Users, ExternalLink, ChevronRight, Star, Mail, RefreshCw } from "lucide-react";
 import { LeadOut } from "@/lib/types";
 import { api } from "@/lib/api";
 import { LeadDrawer } from "@/components/leads/lead-drawer";
@@ -54,8 +42,35 @@ export default function LeadsPage() {
   }, [statusFilter, minScore, hasEmail, includeDnc]);
 
   useEffect(() => {
-    fetchLeads();
-  }, [fetchLeads]);
+    let ignore = false;
+    async function load() {
+      try {
+        const res = await api.listLeads({
+          status: statusFilter || undefined,
+          min_score: minScore > 0 ? minScore : undefined,
+          has_email: hasEmail ? true : undefined,
+          include_dnc: includeDnc,
+          limit: 100,
+        });
+        if (!ignore) {
+          setLeads(res.items);
+        }
+      } catch (err: unknown) {
+        if (!ignore) {
+          const msg = err instanceof Error ? err.message : "Failed to load leads";
+          setError(msg);
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false);
+        }
+      }
+    }
+    void load();
+    return () => {
+      ignore = true;
+    };
+  }, [statusFilter, minScore, hasEmail, includeDnc]);
 
   const activeLead = leads.find((l) => l.id === selectedLeadId) || null;
 
@@ -69,7 +84,7 @@ export default function LeadsPage() {
 
   const handleToggleSelect = (id: string) => {
     setSelectedLeadIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
     );
   };
 
@@ -98,7 +113,8 @@ export default function LeadsPage() {
               <span>Lead Scorer & Outreach Pipeline</span>
             </h1>
             <p className="text-sm text-gray-400 mt-1">
-              Grounded, draft-only outreach workflow with zero automated sending and strict DNC protection.
+              Grounded, draft-only outreach workflow with zero automated sending and strict DNC
+              protection.
             </p>
           </div>
           <button
@@ -321,10 +337,10 @@ export default function LeadsPage() {
                               isDNC
                                 ? "bg-red-950/80 text-red-300 border border-red-800"
                                 : lead.status === "contacted"
-                                ? "bg-blue-950/80 text-blue-300 border border-blue-800"
-                                : lead.status === "replied"
-                                ? "bg-emerald-950/80 text-emerald-300 border border-emerald-800"
-                                : "bg-gray-800 text-gray-300"
+                                  ? "bg-blue-950/80 text-blue-300 border border-blue-800"
+                                  : lead.status === "replied"
+                                    ? "bg-emerald-950/80 text-emerald-300 border border-emerald-800"
+                                    : "bg-gray-800 text-gray-300"
                             }`}
                           >
                             {lead.status.replace("_", " ").toUpperCase()}

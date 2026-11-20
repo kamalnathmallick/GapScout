@@ -29,6 +29,16 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
+### 2026-11-20 - CI Fix: Ruff formatting, ESLint React hooks, and Prettier checks
+- Fixed backend ruff checks and formatting across all Python code (`app/api/v1/leads.py`, `app/services/drafts.py`, `app/api/v1/models.py`, `app/ml/drift.py`, `app/schemas/leads.py`).
+- Fixed frontend ESLint warnings and errors:
+  - Removed unused imports in `apps/web/app/leads/page.tsx`, `apps/web/components/dataset-health-card.tsx`, and `apps/web/components/leads/lead-drawer.tsx`.
+  - Refactored `useEffect` in `page.tsx` and `dataset-health-card.tsx` to prevent synchronous `setState` in effect bodies (`react-hooks/set-state-in-effect`).
+- Formatted all frontend files with Prettier (`npm run format`), passing `prettier --check .`.
+- Verified local CI suite:
+  - Backend: `ruff check` (PASS), `ruff format --check` (PASS), `pytest` (323 tests passed).
+  - Web: `npm run lint` (PASS), `npm run format:check` (PASS), `npm run typecheck` (PASS), `npm run build` (PASS), `npm test` (12 tests passed).
+
 ### 2026-11-20 - Plan for Prompt 15: Model insights and active learning
 - Build model insights dashboard at `apps/web/app/models/page.tsx`:
   - Active model version status, sample size, ROC-AUC, PR-AUC, Brier score, and precision@10 metric cards.

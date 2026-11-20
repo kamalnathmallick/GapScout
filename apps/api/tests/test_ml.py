@@ -216,15 +216,9 @@ def test_shap_explanation_extraction():
 
 def test_drift_detection_warning():
     """Verify drift detection flags large shifts between inference and training features."""
-    train_data = [
-        {"features": {"rating": 4.5, "review_count": 100}}
-        for _ in range(50)
-    ]
+    train_data = [{"features": {"rating": 4.5, "review_count": 100}} for _ in range(50)]
     # Shifted inference data (rating dropped to 2.0)
-    drifted_inf = [
-        {"rating": 2.0, "review_count": 100}
-        for _ in range(50)
-    ]
+    drifted_inf = [{"rating": 2.0, "review_count": 100} for _ in range(50)]
 
     drift_report = check_feature_drift(train_data, drifted_inf)
     assert drift_report["has_drift"] is True

@@ -199,10 +199,7 @@ class ApiClient {
     return this.request<LeadOut>(`/api/v1/leads/${leadId}`);
   }
 
-  async updateLead(
-    leadId: string,
-    payload: { status?: string; notes?: string }
-  ): Promise<LeadOut> {
+  async updateLead(leadId: string, payload: { status?: string; notes?: string }): Promise<LeadOut> {
     return this.request<LeadOut>(`/api/v1/leads/${leadId}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
@@ -211,7 +208,7 @@ class ApiClient {
 
   async generateDraft(
     leadId: string,
-    payload: { channel: "email" | "chat"; tone?: string; custom_offer?: string }
+    payload: { channel: "email" | "chat"; tone?: string; custom_offer?: string },
   ): Promise<GeneratedDraftOut> {
     return this.request<GeneratedDraftOut>(`/api/v1/leads/${leadId}/generate-draft`, {
       method: "POST",
@@ -221,7 +218,7 @@ class ApiClient {
 
   async createDraft(
     leadId: string,
-    payload: { channel: "email" | "chat"; body: string }
+    payload: { channel: "email" | "chat"; body: string },
   ): Promise<OutreachDraft> {
     return this.request<OutreachDraft>(`/api/v1/leads/${leadId}/drafts`, {
       method: "POST",
@@ -231,7 +228,7 @@ class ApiClient {
 
   async createEvent(
     leadId: string,
-    payload: { event_type: string; features_snapshot?: Record<string, unknown> }
+    payload: { event_type: string; features_snapshot?: Record<string, unknown> },
   ): Promise<OutreachEvent> {
     return this.request<OutreachEvent>(`/api/v1/leads/${leadId}/events`, {
       method: "POST",
@@ -241,7 +238,7 @@ class ApiClient {
 
   async logOutcome(
     leadId: string,
-    payload: { outcome: string; occurred_at?: string; notes?: string }
+    payload: { outcome: string; occurred_at?: string; notes?: string },
   ): Promise<OutreachEvent> {
     return this.request<OutreachEvent>(`/api/v1/leads/${leadId}/outcomes`, {
       method: "POST",
@@ -250,14 +247,14 @@ class ApiClient {
   }
 
   async importOutcomesCsv(
-    csvContent: string
+    csvContent: string,
   ): Promise<{ imported: number; skipped: number; errors: string[] }> {
     return this.request<{ imported: number; skipped: number; errors: string[] }>(
       "/api/v1/leads/outcomes/import-csv",
       {
         method: "POST",
         body: JSON.stringify({ csv_content: csvContent }),
-      }
+      },
     );
   }
 

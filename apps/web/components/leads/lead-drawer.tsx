@@ -11,9 +11,6 @@ import {
   ExternalLink,
   ShieldAlert,
   Clock,
-  CheckCircle2,
-  AlertCircle,
-  FileText,
   BarChart2,
 } from "lucide-react";
 import { LeadOut } from "@/lib/types";
@@ -105,7 +102,8 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
           <div className="flex items-center gap-2 mb-1">
             <span
               className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                STATUS_OPTIONS.find((s) => s.value === lead.status)?.color || "bg-gray-800 text-gray-300"
+                STATUS_OPTIONS.find((s) => s.value === lead.status)?.color ||
+                "bg-gray-800 text-gray-300"
               }`}
             >
               {lead.status.replace("_", " ").toUpperCase()}
@@ -114,7 +112,9 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
               Score: {lead.final_score !== null ? Math.round(lead.final_score) : "N/A"}/100
             </span>
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">{place?.name || "Business Details"}</h2>
+          <h2 className="text-xl font-bold text-white tracking-tight">
+            {place?.name || "Business Details"}
+          </h2>
           <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
             <MapPin className="w-3.5 h-3.5" />
             <span>{place?.address || "Address not available"}</span>
@@ -236,7 +236,11 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
                 <div className="flex items-center gap-2 text-gray-300">
                   <Star className="w-3.5 h-3.5 text-amber-400" />
                   <span>
-                    Rating: <strong className="text-white">{place?.rating ? place.rating.toFixed(1) : "N/A"}</strong> ({place?.review_count ?? 0} reviews)
+                    Rating:{" "}
+                    <strong className="text-white">
+                      {place?.rating ? place.rating.toFixed(1) : "N/A"}
+                    </strong>{" "}
+                    ({place?.review_count ?? 0} reviews)
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-gray-300">
@@ -274,16 +278,17 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
                   if (typeof item !== "object" || item === null) return null;
                   const comp = item as { points?: number; max?: number; reason?: string };
                   return (
-                    <div key={key} className="p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80">
+                    <div
+                      key={key}
+                      className="p-2.5 rounded-lg bg-gray-950/70 border border-gray-800/80"
+                    >
                       <div className="flex items-center justify-between font-medium text-gray-200">
                         <span className="capitalize">{key}</span>
                         <span className="text-indigo-400 font-mono">
                           +{comp.points ?? 0} / {comp.max ?? "-"} pts
                         </span>
                       </div>
-                      {comp.reason && (
-                        <p className="text-gray-400 text-xs mt-1">{comp.reason}</p>
-                      )}
+                      {comp.reason && <p className="text-gray-400 text-xs mt-1">{comp.reason}</p>}
                     </div>
                   );
                 })}
@@ -341,7 +346,7 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
             <h4 className="font-semibold text-gray-300 text-xs uppercase tracking-wider mb-3">
               Event History
             </h4>
-            {(!lead.events || lead.events.length === 0) ? (
+            {!lead.events || lead.events.length === 0 ? (
               <p className="text-gray-500 text-xs">No outreach events logged yet.</p>
             ) : (
               <div className="space-y-2">
@@ -351,7 +356,9 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
                     className="p-3 rounded-lg bg-gray-900 border border-gray-800 text-xs space-y-1"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="font-semibold text-indigo-300 capitalize">{ev.event_type}</span>
+                      <span className="font-semibold text-indigo-300 capitalize">
+                        {ev.event_type}
+                      </span>
                       <span className="text-gray-500 text-[10px]">
                         {new Date(ev.occurred_at).toLocaleString()}
                       </span>
@@ -359,7 +366,10 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
                     {ev.features_snapshot && Object.keys(ev.features_snapshot).length > 0 && (
                       <div className="text-[11px] text-gray-400 bg-gray-950 p-2 rounded border border-gray-800/60">
                         <span className="text-gray-500 font-mono">Frozen Snapshot: </span>
-                        <span>{Object.keys(ev.features_snapshot).length} features captured at contact time</span>
+                        <span>
+                          {Object.keys(ev.features_snapshot).length} features captured at contact
+                          time
+                        </span>
                       </div>
                     )}
                   </div>

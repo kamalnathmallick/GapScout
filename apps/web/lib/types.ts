@@ -296,5 +296,3 @@ export interface DatasetHealthOut {
   labels_needed: number;
   positives_needed: number;
 }
-
-

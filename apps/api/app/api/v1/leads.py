@@ -19,7 +19,7 @@ from app.models import (
     Place,
     Workspace,
 )
-from app.outcomes.logging import OutcomeError, import_outcomes_from_csv, log_lead_outcome
+from app.outcomes.logging import OutcomeError, log_lead_outcome
 from app.schemas.common import PaginationMeta
 from app.schemas.leads import (
     GeneratedDraftOut,
@@ -32,7 +32,7 @@ from app.schemas.leads import (
     OutreachEventOut,
     OutreachEventRequest,
 )
-from app.schemas.outcomes import OutcomeImportOut, OutcomeImportRequest, OutcomeLogRequest
+from app.schemas.outcomes import OutcomeLogRequest
 from app.schemas.places import PlaceOut
 from app.services.dnc import add_to_dnc, is_lead_dnc
 from app.services.drafts import DNCBlockedError, enforce_length_caps, generate_and_save_draft
@@ -191,24 +191,6 @@ def list_leads(
     )
 
 
-@router.post("/outcomes/import-csv", response_model=OutcomeImportOut)
-def import_outcomes_csv_endpoint(
-    req: OutcomeImportRequest,
-    workspace: Annotated[Workspace, Depends(get_current_workspace)],
-    db: Annotated[Session, Depends(get_db)],
-) -> OutcomeImportOut:
-    """Import externally tracked outreach outcomes from CSV."""
-    try:
-        result = import_outcomes_from_csv(
-            session=db,
-            workspace_id=workspace.id,
-            csv_text=req.csv_content,
-        )
-        return OutcomeImportOut(**result)
-    except OutcomeError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-
-
 @router.get("/{lead_id}", response_model=LeadOut)
 def get_lead(
     lead_id: uuid.UUID,
@@ -277,13 +259,15 @@ def update_lead(
 
         # If transitioned to contacted, automatically freeze features_snapshot
         if st_clean == "contacted" and old_status != "contacted":
-            # Fetch latest lead features
-            feature_row = db.execute(
-                select(LeadFeature)
-                .where(LeadFeature.lead_id == lead.id)
-                .order_by(LeadFeature.computed_at.desc())
-            ).scalars().first()
-
+            feature_row = (
+                db.execute(
+                    select(LeadFeature)
+                    .where(LeadFeature.lead_id == lead.id)
+                    .order_by(LeadFeature.computed_at.desc())
+                )
+                .scalars()
+                .first()
+            )
             snapshot = feature_row.features if feature_row else {}
             event = OutreachEvent(
                 workspace_id=workspace.id,
@@ -394,14 +378,17 @@ def create_lead_event(
     if not lead or lead.workspace_id != workspace.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found.")
 
-    # If event_type is contacted and no snapshot was passed, freeze current features
     snapshot = req.features_snapshot
     if req.event_type.strip().lower() == "contacted" and snapshot is None:
-        feature_row = db.execute(
-            select(LeadFeature)
-            .where(LeadFeature.lead_id == lead.id)
-            .order_by(LeadFeature.computed_at.desc())
-        ).scalars().first()
+        feature_row = (
+            db.execute(
+                select(LeadFeature)
+                .where(LeadFeature.lead_id == lead.id)
+                .order_by(LeadFeature.computed_at.desc())
+            )
+            .scalars()
+            .first()
+        )
         snapshot = feature_row.features if feature_row else {}
 
     event = OutreachEvent(
@@ -444,4 +431,3 @@ def log_lead_outcome_endpoint(
         return OutreachEventOut.model_validate(event)
     except OutcomeError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-

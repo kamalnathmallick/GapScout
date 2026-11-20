@@ -97,7 +97,9 @@ export function DraftGenerator({ lead, onDraftGenerated, onStatusChanged }: Draf
               type="button"
               onClick={() => setChannel("email")}
               className={`py-1.5 px-2 rounded flex items-center justify-center gap-1.5 transition-colors ${
-                channel === "email" ? "bg-indigo-600 text-white font-semibold" : "text-gray-400 hover:text-white"
+                channel === "email"
+                  ? "bg-indigo-600 text-white font-semibold"
+                  : "text-gray-400 hover:text-white"
               }`}
             >
               <Mail className="w-3.5 h-3.5" />
@@ -107,7 +109,9 @@ export function DraftGenerator({ lead, onDraftGenerated, onStatusChanged }: Draf
               type="button"
               onClick={() => setChannel("chat")}
               className={`py-1.5 px-2 rounded flex items-center justify-center gap-1.5 transition-colors ${
-                channel === "chat" ? "bg-emerald-600 text-white font-semibold" : "text-gray-400 hover:text-white"
+                channel === "chat"
+                  ? "bg-emerald-600 text-white font-semibold"
+                  : "text-gray-400 hover:text-white"
               }`}
             >
               <MessageSquare className="w-3.5 h-3.5" />
@@ -155,8 +159,12 @@ export function DraftGenerator({ lead, onDraftGenerated, onStatusChanged }: Draf
         <div className="space-y-3 pt-2 border-t border-gray-800">
           <div className="flex items-center justify-between text-xs text-gray-400">
             <div className="flex items-center gap-3">
-              <span>Length: <strong className="text-white">{draft.word_count} words</strong></span>
-              <span>Chars: <strong className="text-white">{draft.char_count}</strong></span>
+              <span>
+                Length: <strong className="text-white">{draft.word_count} words</strong>
+              </span>
+              <span>
+                Chars: <strong className="text-white">{draft.char_count}</strong>
+              </span>
             </div>
             <span className="text-emerald-400">Mandatory opt-out included</span>
           </div>
@@ -181,7 +189,11 @@ export function DraftGenerator({ lead, onDraftGenerated, onStatusChanged }: Draf
               onClick={handleCopy}
               className="flex-1 py-1.5 px-3 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg flex items-center justify-center gap-1.5 transition-colors"
             >
-              {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
               <span>{copied ? "Copied!" : "Copy Text"}</span>
             </button>
 
@@ -210,15 +222,18 @@ export function DraftGenerator({ lead, onDraftGenerated, onStatusChanged }: Draf
             )}
           </div>
 
-          {lead.status !== "contacted" && lead.status !== "replied" && lead.status !== "meeting" && lead.status !== "converted" && (
-            <button
-              onClick={handleMarkContacted}
-              disabled={markingContacted}
-              className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-            >
-              {markingContacted ? "Updating..." : "Mark as Contacted (Freeze Features)"}
-            </button>
-          )}
+          {lead.status !== "contacted" &&
+            lead.status !== "replied" &&
+            lead.status !== "meeting" &&
+            lead.status !== "converted" && (
+              <button
+                onClick={handleMarkContacted}
+                disabled={markingContacted}
+                className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                {markingContacted ? "Updating..." : "Mark as Contacted (Freeze Features)"}
+              </button>
+            )}
         </div>
       )}
     </div>

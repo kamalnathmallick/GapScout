@@ -36,6 +36,26 @@ def clean_and_normalize_places_task(job_id_str: str) -> dict:
     return report
 
 
+@celery_app.task(name="gapscout.enrich_lead_task")
+def enrich_lead_task(lead_id_str: str, force: bool = False) -> dict:
+    """Enrich a single lead with website audit and review themes."""
+    from app.enrichment.pipeline import enrich_lead
+
+    lead_id = uuid.UUID(lead_id_str)
+    with SessionLocal() as session:
+        return enrich_lead(session, lead_id, force=force)
+
+
+@celery_app.task(name="gapscout.enrich_job_leads_task")
+def enrich_job_leads_task(job_id_str: str, min_rule_score: float = 60.0) -> int:
+    """Batch enrich top-scoring leads for a job within cost caps."""
+    from app.enrichment.pipeline import enrich_job_leads
+
+    job_id = uuid.UUID(job_id_str)
+    with SessionLocal() as session:
+        return enrich_job_leads(session, job_id, min_rule_score=min_rule_score)
+
+
 @celery_app.task(name="gapscout.score_job_leads_task")
 def score_job_leads_task(job_id_str: str) -> int:
     """Extract features and calculate rule scores for leads in a completed job."""
@@ -46,7 +66,11 @@ def score_job_leads_task(job_id_str: str) -> int:
         job = session.execute(select(SearchJob).where(SearchJob.id == job_id)).scalar_one_or_none()
         if not job:
             return 0
-        return score_workspace_leads(session, job.workspace_id)
+        scored = score_workspace_leads(session, job.workspace_id)
+
+    # Automatically trigger enrichment for top leads
+    enrich_job_leads_task.delay(job_id_str)
+    return scored
 
 
 @celery_app.task(name="gapscout.compute_gap_analysis_task")

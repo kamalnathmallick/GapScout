@@ -513,3 +513,22 @@ class OfferProfile(Base):
     )
 
     __table_args__ = (UniqueConstraint("workspace_id", name="uq_offer_profiles_workspace"),)
+
+
+class LLMUsageLog(Base):
+    __tablename__ = "llm_usage_logs"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    model: Mapped[str] = mapped_column(String(64), nullable=False)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("0"))
+    completion_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default=text("0")
+    )
+    cost_usd: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0.0"))
+    created_at: Mapped[datetime] = _created_at()
+
+    __table_args__ = (Index("ix_llm_usage_logs_workspace_created", "workspace_id", "created_at"),)

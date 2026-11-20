@@ -14,7 +14,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 8: Frontend foundation
 - [x] Prompt 9: Gap map UI
 - [x] Prompt 10: Lead features and rule-based scorer
-- [ ] Prompt 11: LLM enrichment
+- [x] Prompt 11: LLM enrichment
 - [ ] Prompt 12: Outreach workflow
 - [ ] Prompt 13: Outcome logging and dataset builder
 - [ ] Prompt 14: ML training pipeline
@@ -28,6 +28,30 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
+
+### 2026-11-20 - Prompt 11: LLM enrichment
+- Added `LLMUsageLog` model in `app/models.py` and created new Alembic migration `01ba234950a3_add_llm_usage_logs_table.py` (`down_revision = 'd70954e45f7b'`).
+- Added LLM settings in `app/config.py`: `anthropic_api_key`, `llm_model_fast` (default `claude-3-5-haiku-20241022`), `llm_model_quality` (default `claude-3-5-sonnet-20241022`), and `llm_daily_cost_cap_usd` (default $2.00).
+- Implemented safe website fetcher with strict SSRF defense in `app/enrichment/safe_fetcher.py`:
+  - Blocks private, loopback, link-local, multicast, and cloud metadata IP ranges (including redirects).
+  - Enforces 512 KB size limit and 8s timeout.
+  - Computes deterministic web signals (HTTPS, mobile viewport meta tag, load time, contact forms, booking links, social links) and extracts clean body text.
+- Implemented workspace daily cost tracking and cap enforcement in `app/enrichment/cost_guard.py`: tracks prompt/completion tokens, logs usage in `llm_usage_logs`, and raises `CostCapExceededError` if the workspace's daily spending limit is reached.
+- Implemented `AnthropicClient` in `app/enrichment/anthropic_client.py`:
+  - Enforces prompt injection protection: wraps untrusted scraped text in `<untrusted_scraped_data>...</untrusted_scraped_data>` tags and instructs the model never to execute embedded instructions.
+  - Validates structured JSON responses using Pydantic schemas with automatic 1-attempt retry on invalid JSON and graceful error handling.
+  - Provides deterministic local fallback generation when running without API keys.
+- Implemented website audit module in `app/enrichment/website.py`: evaluates value clarity, CTA effectiveness, mobile readiness, top issues, and overall score (0-100), cached by `sha256(content)` in `enrichments` table and updates `lead_features.features["website_audit_score"]`.
+- Implemented review themes extraction module in `app/enrichment/reviews.py`: analyzes up to 30 recent customer reviews to extract recurring complaints, praises, owner response behavior, and a high-converting one-line pitch angle; cached by content hash and updates `lead_features.features["number_of_review_pain_themes"]`.
+- Implemented orchestration pipeline in `app/enrichment/pipeline.py` and wired Celery tasks `enrich_lead_task` and `enrich_job_leads_task` in `app/tasks.py`.
+- Added comprehensive unit and integration test suite in `tests/test_enrichment.py`:
+  - SSRF defense verification blocking private/loopback IPs.
+  - Deterministic HTML signal extraction.
+  - JSON schema parsing and retry on malformed JSON.
+  - Content-hash caching verifying second runs hit cache with 0 LLM calls.
+  - Daily cost cap enforcement verifying spending halts gracefully when cap is reached.
+- Verified: All 308 API pytest tests passing in 8.91s; `ruff check` and `ruff format` clean; `alembic check` clean with zero drift.
+- Commit: `feat(enrichment): website audit and review themes`.
 
 ### 2026-11-20 - Prompt 10: Lead features and rule-based scorer
 - Added `OfferProfile` model in `app/models.py` and created new Alembic migration `d70954e45f7b_add_offer_profiles_table.py` (`down_revision = '9806193c2e18'`).

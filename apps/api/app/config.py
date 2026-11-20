@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     max_places_per_job: int = 5000
     geocoder_user_agent: str = "gapscout/1.0 (you@example.com)"
 
+    # LLM Settings
+    anthropic_api_key: str = ""
+    llm_model_fast: str = "claude-3-5-haiku-20241022"
+    llm_model_quality: str = "claude-3-5-sonnet-20241022"
+    llm_daily_cost_cap_usd: float = 2.0
+
     # Comma-separated list, kept as a string so pydantic-settings does not try
     # to JSON-decode a plain env var.
     cors_origins: str = "http://localhost:3000"

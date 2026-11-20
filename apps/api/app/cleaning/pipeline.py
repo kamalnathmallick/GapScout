@@ -8,6 +8,7 @@ import h3
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.cleaning.allow_list import sanitize_raw_business_data
 from app.cleaning.duplicates import detect_and_merge_duplicates, get_place_coords
 from app.cleaning.email import (
     batch_check_mx_records,
@@ -74,7 +75,9 @@ def clean_and_normalize_place(place: Place, mx_cache: dict[str, bool] | None = N
     raw_dict["has_named_email"] = email_res.is_valid_syntax and not email_res.is_generic
     raw_dict["has_generic_email"] = email_res.is_valid_syntax and email_res.is_generic
     raw_dict["email_mx_valid"] = email_res.has_valid_mx
-    place.raw = raw_dict
+
+    # 7. Field-level allow-list enforcement (discard non-business / extraneous metadata)
+    place.raw = sanitize_raw_business_data(raw_dict)
 
 
 def generate_quality_report(places: list[Place], duplicates_removed: int) -> dict[str, Any]:

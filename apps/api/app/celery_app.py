@@ -27,5 +27,9 @@ celery_app.conf.update(
             "schedule": 86400.0,  # Run daily
             "args": (14,),
         },
+        "cleanup-expired-raw-data-daily": {
+            "task": "gapscout.cleanup_expired_raw_data_task",
+            "schedule": 86400.0,  # Run daily (retention window, default 90 days)
+        },
     },
 )

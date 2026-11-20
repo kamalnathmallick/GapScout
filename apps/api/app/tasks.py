@@ -141,6 +141,80 @@ def close_outreach_windows_task(days_window: int = 14, db_session: Any | None = 
         return _process(session)
 
 
+@celery_app.task(name="gapscout.cleanup_expired_raw_data_task")
+def cleanup_expired_raw_data_task(
+    retention_days: int | None = None,
+    db_session: Any | None = None,
+) -> dict[str, int]:
+    """Prune raw scraped payloads from Places and SearchJobs older than retention window."""
+    from datetime import datetime, timedelta
+
+    from app.models import Place, SearchJob, Workspace
+
+    def _execute(session: Any) -> dict[str, int]:
+        total_places_pruned = 0
+        total_jobs_pruned = 0
+
+        workspaces = session.execute(select(Workspace)).scalars().all()
+        for ws in workspaces:
+            effective_days = (
+                retention_days if retention_days is not None else (ws.data_retention_days or 90)
+            )
+            cutoff = datetime.now(UTC) - timedelta(days=effective_days)
+
+            # Find places created before retention cutoff that still hold non-empty raw payloads
+            places = (
+                session.execute(
+                    select(Place).where(
+                        Place.workspace_id == ws.id,
+                        Place.first_seen_at <= cutoff,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+            for p in places:
+                if p.raw and p.raw != {}:
+                    p.raw = {}
+                    total_places_pruned += 1
+
+            # Prune completed or cancelled search job params older than 2x retention window
+            job_cutoff = datetime.now(UTC) - timedelta(days=effective_days * 2)
+            jobs = (
+                session.execute(
+                    select(SearchJob).where(
+                        SearchJob.workspace_id == ws.id,
+                        SearchJob.status.in_(["completed", "failed", "cancelled"]),
+                        SearchJob.created_at <= job_cutoff,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+            for j in jobs:
+                if j.params and j.params != {}:
+                    j.params = {"pruned": True, "pruned_at": datetime.now(UTC).isoformat()}
+                    total_jobs_pruned += 1
+
+        if total_places_pruned > 0 or total_jobs_pruned > 0:
+            session.commit()
+
+        logger.info(
+            "Data retention cleanup finished: %d places pruned, %d jobs pruned",
+            total_places_pruned,
+            total_jobs_pruned,
+        )
+        return {"places_pruned": total_places_pruned, "jobs_pruned": total_jobs_pruned}
+
+    if db_session is not None:
+        return _execute(db_session)
+
+    with SessionLocal() as session:
+        return _execute(session)
+
+
 @celery_app.task(name="gapscout.retrain_workspace_models_task")
 def retrain_workspace_models_task(workspace_id_str: str) -> dict[str, Any]:
     """Retrain ML model when enough new labelled outcomes exist and no jobs are active."""
@@ -341,7 +415,7 @@ def scrape_cell_task(self, cell_id_str: str, provider_name: str = "gosom") -> di
 
 def dispatch_job_cells(
     job_id: uuid.UUID,
-    concurrency_delay: float = 0.2,
+    concurrency_delay: float = 1.0,
 ) -> int:
     """Enqueue tasks for pending/failed cells of a search job."""
     with SessionLocal() as session:

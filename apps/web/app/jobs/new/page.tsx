@@ -31,6 +31,7 @@ export default function NewJobPage() {
   const [category, setCategory] = useState("cafe");
   const [areaName, setAreaName] = useState("Indiranagar, Bangalore");
   const [cellSizeM, setCellSizeM] = useState(1000);
+  const [acknowledgedTos, setAcknowledgedTos] = useState(false);
 
   const [estimate, setEstimate] = useState<GridEstimateOut | null>(null);
   const [isEstimating, setIsEstimating] = useState(false);
@@ -185,9 +186,41 @@ export default function NewJobPage() {
                 </div>
               </div>
 
+              {/* Compliance & Scraping Notice */}
+              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-200/90 space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-amber-300">
+                      Scraping Notice &amp; Legal Compliance
+                    </h3>
+                    <p className="text-amber-200/80 leading-relaxed">
+                      Automated scraping of Google Maps may violate Google&apos;s Terms of Service.
+                      GapScout is designed strictly for processing public business information for
+                      legitimate market intelligence and lawful B2B outreach in compliance with
+                      applicable data protection laws (e.g. DPDP Act / GDPR).
+                    </p>
+                  </div>
+                </div>
+                <label className="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-amber-500/20">
+                  <input
+                    type="checkbox"
+                    id="acknowledgedTos"
+                    data-testid="tos-checkbox"
+                    checked={acknowledgedTos}
+                    onChange={(e) => setAcknowledgedTos(e.target.checked)}
+                    className="mt-0.5 rounded border-amber-400/40 text-indigo-600 focus:ring-indigo-500 bg-gray-950"
+                  />
+                  <span className="text-xs text-amber-100 select-none">
+                    I acknowledge the Google Terms of Service risks and confirm this search job
+                    complies with data privacy regulations.
+                  </span>
+                </label>
+              </div>
+
               <button
                 type="submit"
-                disabled={isSubmitting || isEstimating || !estimate}
+                disabled={isSubmitting || isEstimating || !estimate || !acknowledgedTos}
                 className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-colors disabled:opacity-50 mt-4 shadow-lg shadow-indigo-600/20"
               >
                 {isSubmitting ? (

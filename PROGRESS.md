@@ -20,7 +20,7 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 - [x] Prompt 14: ML training pipeline
 - [x] Prompt 15: Model insights and active learning
 - [x] Prompt 16: Auth, tenancy and settings
-- [ ] Prompt 17: Compliance and security hardening
+- [x] Prompt 17: Compliance and security hardening
 - [ ] Prompt 18: Testing and quality
 - [ ] Prompt 19: Observability and operations
 - [ ] Prompt 20: Deployment and CI/CD
@@ -39,16 +39,31 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
   - Backend: `ruff check` (PASS), `ruff format --check` (PASS), `pytest` (323 tests passed).
   - Web: `npm run lint` (PASS), `npm run format:check` (PASS), `npm run typecheck` (PASS), `npm run build` (PASS), `npm test` (12 tests passed).
 
-### 2026-11-20 - Plan for Prompt 17: Compliance and security hardening
-- Add mandatory scraping notice and DPDP/ToS acknowledgement consent checkbox on new job page (`apps/web/app/jobs/new/page.tsx`).
-- Enforce global rate limiting and polite request delays (1.0-2.0s jitter) in scraper provider/adapter (`apps/api/app/providers/scraper.py`).
-- Implement 90-day raw data retention Celery beat task (`cleanup_expired_raw_data_task`) in `app/tasks.py` pruning `place.raw = {}` past retention window.
-- Implement strict field-level allow-list in place cleaning to prevent storing non-business PII.
-- Enforce opt-out lines in outreach templates and DNC validation everywhere.
-- Add security headers middleware (CSP, X-Content-Type-Options, X-Frame-Options, HSTS) and strict CORS in `app/main.py`.
-- Add SSRF validation on external fetch/webhook utilities.
-- Add prompt-injection adversarial test cases in `tests/test_compliance_security.py` verifying raw review/site text cannot hijack LLM prompts.
-- Author `/docs/compliance.md` (DPDP Act, ToS considerations, official Places API switch) and a <=1-page threat model in `/docs/threat-model.md`.
+### 2026-11-20 - Plan for Prompt 18: Testing and quality
+- Target >=80% test coverage on core backend modules (gap engine, scoring pipeline, ML tournaments, providers) using pytest fixtures & factories.
+- Add scraper contract tests with recorded fixtures.
+- Expand frontend component tests for forms, drawers, and tables.
+- Implement Playwright end-to-end journey test (`tests-e2e`): register, create job, view gap map, open lead, generate draft, log contact & reply, verify dataset health update.
+- Implement synthetic performance benchmarks (50,000 places gap computation <=30s, 5,000 hexes API answer <=500ms).
+- Configure mypy/pyright strict type-checking in CI.
+
+### 2026-11-20 - Prompt 17: Compliance and security hardening
+- Implemented scraping notice and mandatory legal/DPDP consent checkbox in `apps/web/app/jobs/new/page.tsx`, blocking submission until accepted.
+- Updated and verified web job form component test in `apps/web/test/job-form.test.tsx` (12 tests passing).
+- Added global rate limiting and polite request delays (1.0-2.0s with random jitter) in `apps/api/app/providers/gosom.py` and `apps/api/app/tasks.py`.
+- Implemented 90-day raw data retention Celery task `cleanup_expired_raw_data_task` in `app/tasks.py` and scheduled it daily in `app/celery_app.py`, pruning `place.raw = {}` beyond retention window.
+- Implemented strict field-level allow-list in `app/cleaning/allow_list.py` and integrated it into `app/cleaning/pipeline.py` to discard non-business PII and scraper internal metadata.
+- Added `SecurityHeadersMiddleware` in `app/main.py` enforcing `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Strict-Transport-Security`, `Content-Security-Policy`, and strict CORS.
+- Added dependency scanning steps (`pip-audit` and `npm audit --audit-level=high`) in `.github/workflows/ci.yml`.
+- Added comprehensive compliance and security test suite in `apps/api/tests/test_compliance_security.py` (10 tests passing):
+  - SSRF defenses for private IPs, RFC1918, link-local, AWS metadata (169.254.169.254), and non-HTTP protocols.
+  - Prompt injection quarantine: wraps untrusted scraped inputs inside defensive `<untrusted_scraped_data>` tags and prevents directive leaks in drafts.
+  - Data retention raw payload pruning.
+  - Field-level allow-list sanitisation.
+  - Security headers verification on HTTP endpoints.
+  - DNC blocking and mandatory opt-out lines in outreach messages.
+- Authored `/docs/compliance.md` covering DPDP Act considerations, Google Terms of Service risks, and how to switch to the official Google Places API provider.
+- Authored single-page threat model in `/docs/threat-model.md` covering assets, entry points, and top 8 risks/mitigations.
 
 ### 2026-11-20 - Prompt 16: Auth, tenancy and settings
 - Added Alembic migration `8f1c4e92a10b_add_workspace_caps_and_user_verification.py` adding caps/retention columns to `workspaces` and email verification/password reset token columns to `users`.

@@ -35,6 +35,8 @@ class GosomScraperProvider(DataSourceProvider):
         initial_poll_interval: float = 1.0,
         max_poll_interval: float = 5.0,
         backoff_factor: float = 1.5,
+        polite_delay_min: float = 1.0,
+        polite_delay_max: float = 2.0,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self._client = client
@@ -42,10 +44,21 @@ class GosomScraperProvider(DataSourceProvider):
         self.initial_poll_interval = initial_poll_interval
         self.max_poll_interval = max_poll_interval
         self.backoff_factor = backoff_factor
+        self.polite_delay_min = polite_delay_min
+        self.polite_delay_max = polite_delay_max
 
     @property
     def name(self) -> str:
         return "gosom"
+
+    def apply_polite_delay(self) -> float:
+        """Introduce polite request delay with jitter to respect scraper and target rate limits."""
+        import random
+
+        delay = random.uniform(self.polite_delay_min, self.polite_delay_max)
+        if delay > 0:
+            time.sleep(delay)
+        return delay
 
     def _get_client(self) -> httpx.Client:
         if self._client is not None:
@@ -59,6 +72,7 @@ class GosomScraperProvider(DataSourceProvider):
         options: SearchOptions | None = None,
     ) -> list[RawPlace]:
         """Submit a scrape job, poll for completion, and return raw place records."""
+        self.apply_polite_delay()
         opts = options or SearchOptions()
         query = f"{category} in {area_or_cell}".strip()
         job_id = self.create_job(query=query, options=opts)

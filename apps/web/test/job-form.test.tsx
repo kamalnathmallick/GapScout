@@ -116,10 +116,21 @@ describe("NewJobPage Component", () => {
 
     render(<NewJobPage />);
 
-    // Wait for estimate to enable button
+    // Wait for estimate to load
     await waitFor(() => {
-      expect(screen.getByText(/Confirm and Start Analysis/i)).not.toBeDisabled();
+      expect(screen.getByText("9 cells")).toBeInTheDocument();
     });
+
+    // Button should be disabled until TOS checkbox is checked
+    const submitBtn = screen.getByText(/Confirm and Start Analysis/i).closest("button");
+    expect(submitBtn).toBeDisabled();
+
+    // Check TOS consent checkbox
+    const tosCheckbox = screen.getByTestId("tos-checkbox");
+    fireEvent.click(tosCheckbox);
+
+    // Button should now be enabled
+    expect(submitBtn).not.toBeDisabled();
 
     const form = screen.getByTestId("new-job-form");
     fireEvent.submit(form);

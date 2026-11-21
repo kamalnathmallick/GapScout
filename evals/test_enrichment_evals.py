@@ -15,14 +15,14 @@ if str(API_DIR) not in sys.path:
     sys.path.insert(0, str(API_DIR))
 
 import pytest
-from app.enrichment.anthropic_client import AnthropicClient
+from app.enrichment.gemini_client import GeminiClient
 from app.enrichment.reviews import ReviewThemesAudit
 from app.enrichment.website import LLMWebsiteAudit
 
 
 def test_eval_website_audit_schema_and_score_bounds():
     """Eval: LLM website audit adheres to schema bounds (1-5 and 0-100)."""
-    client = AnthropicClient(api_key="test-mock")
+    client = GeminiClient(api_key="test-mock")
     mock_obj, prompt_tok, comp_tok = client._generate_mock_output(
         kind="website_audit",
         content="Homepage text with online booking menu",
@@ -39,7 +39,7 @@ def test_eval_website_audit_schema_and_score_bounds():
 
 def test_eval_review_themes_schema():
     """Eval: Review theme extraction conforms to structured schema."""
-    client = AnthropicClient(api_key="test-mock")
+    client = GeminiClient(api_key="test-mock")
     mock_obj, prompt_tok, comp_tok = client._generate_mock_output(
         kind="review_themes",
         content="Great ambiance but slow service on weekends",
@@ -54,8 +54,8 @@ def test_eval_review_themes_schema():
 
 
 def test_eval_prompt_injection_safety_tags():
-    """Eval: AnthropicClient system prompts enclose untrusted content in defensive tags."""
-    client = AnthropicClient(api_key="test-mock")
+    """Eval: GeminiClient system prompts enclose untrusted content in defensive tags."""
+    client = GeminiClient(api_key="test-mock")
 
     # Inspect generated structure
     mock_adversarial = (

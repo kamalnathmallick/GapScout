@@ -7,15 +7,16 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.enrichment.anthropic_client import (
-    AnthropicClient,
-    AnthropicEnrichmentError,
-    extract_json_from_text,
-)
 from app.enrichment.cost_guard import (
     CostCapExceededError,
     check_workspace_daily_cap,
     record_llm_usage,
+)
+from app.enrichment.gemini_client import (
+    AnthropicClient,
+    GeminiClient,
+    GeminiEnrichmentError,
+    extract_json_from_text,
 )
 from app.enrichment.pipeline import enrich_job_leads
 from app.enrichment.reviews import ReviewThemesAudit, extract_place_review_themes
@@ -94,7 +95,7 @@ def test_simple_html_inspector_deterministic_signals():
 
 
 # ==============================================================================
-# 2. Anthropic Client JSON Validation and Retry
+# 2. Gemini Client JSON Validation and Retry
 # ==============================================================================
 def test_extract_json_from_text_strips_markdown():
     """Verify JSON parsing handles markdown fencing and surrounding prose."""
@@ -115,31 +116,30 @@ def test_extract_json_from_text_strips_markdown():
     assert parsed["overall_score"] == 82
 
 
-def test_anthropic_client_retries_on_invalid_json(
+def test_gemini_client_retries_on_invalid_json(
     db_session: Session, enrichment_workspace: Workspace
 ):
-    """Verify AnthropicClient retries once on invalid JSON and succeeds on valid response."""
-    client = AnthropicClient(api_key="sk-ant-test-key", default_model="claude-3-5-haiku-20241022")
+    """Verify GeminiClient retries once on invalid JSON and succeeds on valid response."""
+    client = GeminiClient(api_key="real-gemini-key", default_model="gemini-2.5-flash")
 
     mock_resp_fail = MagicMock()
-    mock_resp_fail.status_code = 200
-    mock_resp_fail.json.return_value = {
-        "content": [{"type": "text", "text": "This is not valid json at all"}],
-        "usage": {"input_tokens": 100, "output_tokens": 50},
-    }
+    mock_resp_fail.text = "This is not valid json at all"
+    mock_resp_fail.usage_metadata = MagicMock(prompt_token_count=100, candidates_token_count=50)
 
     mock_json = (
         '{"headline": "Good site", "clarity_score": 4, "cta_presence": 3, '
         '"mobile_readiness": 4, "top_issues": [], "overall_score": 80}'
     )
     mock_resp_success = MagicMock()
-    mock_resp_success.status_code = 200
-    mock_resp_success.json.return_value = {
-        "content": [{"type": "text", "text": mock_json}],
-        "usage": {"input_tokens": 120, "output_tokens": 60},
-    }
+    mock_resp_success.text = mock_json
+    mock_resp_success.usage_metadata = MagicMock(prompt_token_count=120, candidates_token_count=60)
 
-    with patch("httpx.Client.post", side_effect=[mock_resp_fail, mock_resp_success]):
+    mock_models = MagicMock()
+    mock_models.generate_content.side_effect = [mock_resp_fail, mock_resp_success]
+    mock_genai_client = MagicMock()
+    mock_genai_client.models = mock_models
+
+    with patch.object(client, "_get_client", return_value=mock_genai_client):
         result, p_tok, c_tok = client.generate_structured_output(
             session=db_session,
             workspace_id=enrichment_workspace.id,
@@ -155,22 +155,24 @@ def test_anthropic_client_retries_on_invalid_json(
     assert c_tok == 60
 
 
-def test_anthropic_client_fails_gracefully_after_exhausting_retries(
+def test_gemini_client_fails_gracefully_after_exhausting_retries(
     db_session: Session, enrichment_workspace: Workspace
 ):
-    """Verify client raises AnthropicEnrichmentError when attempts fail to return valid JSON."""
-    client = AnthropicClient(api_key="sk-ant-test-key")
+    """Verify client raises GeminiEnrichmentError when attempts fail to return valid JSON."""
+    client = GeminiClient(api_key="real-gemini-key")
 
     mock_resp = MagicMock()
-    mock_resp.status_code = 200
-    mock_resp.json.return_value = {
-        "content": [{"type": "text", "text": "Malicious non-json reply"}],
-        "usage": {"input_tokens": 50, "output_tokens": 20},
-    }
+    mock_resp.text = "Malicious non-json reply"
+    mock_resp.usage_metadata = MagicMock(prompt_token_count=50, candidates_token_count=20)
+
+    mock_models = MagicMock()
+    mock_models.generate_content.return_value = mock_resp
+    mock_genai_client = MagicMock()
+    mock_genai_client.models = mock_models
 
     with (
-        patch("httpx.Client.post", return_value=mock_resp),
-        pytest.raises(AnthropicEnrichmentError),
+        patch.object(client, "_get_client", return_value=mock_genai_client),
+        pytest.raises(GeminiEnrichmentError),
     ):
         client.generate_structured_output(
             session=db_session,
@@ -395,8 +397,9 @@ def test_batch_enrichment_stops_gracefully_on_cost_cap(
     # Run batch enrichment with low cap -> Should stop at 0 without crashing
     mock_settings = MagicMock()
     mock_settings.llm_daily_cost_cap_usd = 1.0
+    mock_settings.gemini_api_key = ""
     mock_settings.anthropic_api_key = ""
-    mock_settings.llm_model_fast = "claude-3-5-haiku-20241022"
+    mock_settings.llm_model_fast = "gemini-2.5-flash"
 
     with patch("app.enrichment.cost_guard.get_settings", return_value=mock_settings):
         enriched_count = enrich_job_leads(db_session, job.id, min_rule_score=60.0)

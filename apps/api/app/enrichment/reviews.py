@@ -1,4 +1,4 @@
-"""Review themes enrichment module with caching and Claude-powered analysis."""
+"""Review themes enrichment module with caching and Gemini-powered analysis."""
 
 import hashlib
 import logging
@@ -8,14 +8,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.enrichment.anthropic_client import AnthropicClient
+from app.enrichment.gemini_client import GeminiClient
 from app.models import Enrichment, Lead, LeadFeature, Place, PlaceReview
 
 logger = logging.getLogger(__name__)
 
 
 class ReviewThemesAudit(BaseModel):
-    """Structured review themes and pitch angle produced by Claude."""
+    """Structured review themes and pitch angle produced by Gemini."""
 
     complaint_themes: list[str] = Field(
         default_factory=list, description="Top recurring customer complaints"
@@ -45,7 +45,8 @@ def extract_place_review_themes(
     session: Session,
     place: Place,
     force: bool = False,
-    anthropic_client: AnthropicClient | None = None,
+    gemini_client: GeminiClient | None = None,
+    anthropic_client: GeminiClient | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Analyze up to 30 recent reviews for a place and extract pain themes and pitch angle."""
     reviews = (
@@ -87,8 +88,8 @@ def extract_place_review_themes(
             logger.info("Cache hit for review themes (place %s)", place.id)
             return cached.content, True
 
-    # 2. Query Claude via client
-    client = anthropic_client or AnthropicClient()
+    # 2. Query Gemini via client
+    client = gemini_client or anthropic_client or GeminiClient()
     prompt_context = (
         f"Business Name: {place.name}\n"
         f"Category: {place.normalized_category or place.category}\n"

@@ -2,7 +2,7 @@
 
 Product: GapScout is a map-based market intelligence app. The gap map shows on an H3 hex grid where a local market is oversaturated or underserved for a business category. The lead scorer ranks which businesses to pitch (rules first, then an ML model trained on logged replied / not-replied outcomes). Each hex's gap score is a feature of every lead inside it.
 
-Stack: Python 3.11, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 16 + PostGIS, Redis + Celery, H3, scikit-learn / LightGBM / SHAP, Anthropic API, Next.js + TypeScript + Tailwind + MapLibre GL + deck.gl, gosom/google-maps-scraper (Docker), Docker Compose, pytest, ruff, Playwright, GitHub Actions. Do not deviate without asking.
+Stack: Python 3.11, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 16 + PostGIS, Redis + Celery, H3, scikit-learn / LightGBM / SHAP, Google Gemini API, Next.js + TypeScript + Tailwind + MapLibre GL + deck.gl, gosom/google-maps-scraper (Docker), Docker Compose, pytest, ruff, Playwright, GitHub Actions. Do not deviate without asking.
 
 Layout: /apps/api, /apps/web, /infra, /docs, /scripts, /tests-e2e.
 

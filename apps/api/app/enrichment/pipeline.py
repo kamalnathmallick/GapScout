@@ -7,8 +7,8 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.enrichment.anthropic_client import AnthropicClient
 from app.enrichment.cost_guard import CostCapExceededError, check_workspace_daily_cap
+from app.enrichment.gemini_client import GeminiClient
 from app.enrichment.reviews import extract_place_review_themes
 from app.enrichment.website import audit_place_website
 from app.models import Lead, Place, SearchJob
@@ -21,7 +21,8 @@ def enrich_lead(
     session: Session,
     lead_id: uuid.UUID,
     force: bool = False,
-    anthropic_client: AnthropicClient | None = None,
+    gemini_client: GeminiClient | None = None,
+    anthropic_client: GeminiClient | None = None,
 ) -> dict[str, Any]:
     """Perform website audit and review themes extraction for a single lead."""
     lead = session.execute(select(Lead).where(Lead.id == lead_id)).scalar_one_or_none()
@@ -33,6 +34,8 @@ def enrich_lead(
     place = session.execute(select(Place).where(Place.id == lead.place_id)).scalar_one_or_none()
     if not place:
         raise ValueError(f"Place {lead.place_id} for Lead {lead_id} not found")
+
+    client = gemini_client or anthropic_client or GeminiClient()
 
     result: dict[str, Any] = {
         "lead_id": str(lead.id),
@@ -48,7 +51,7 @@ def enrich_lead(
                 session=session,
                 place=place,
                 force=force,
-                anthropic_client=anthropic_client,
+                gemini_client=client,
             )
             result["website_audit"] = {"data": audit, "cached": cached}
         except CostCapExceededError:
@@ -63,7 +66,7 @@ def enrich_lead(
             session=session,
             place=place,
             force=force,
-            anthropic_client=anthropic_client,
+            gemini_client=client,
         )
         result["review_themes"] = {"data": themes, "cached": cached}
     except CostCapExceededError:
@@ -111,11 +114,11 @@ def enrich_job_leads(
     )
 
     enriched_count = 0
-    client = AnthropicClient()
+    client = GeminiClient()
 
     for lead in leads:
         try:
-            enrich_lead(session, lead.id, force=False, anthropic_client=client)
+            enrich_lead(session, lead.id, force=False, gemini_client=client)
             enriched_count += 1
         except CostCapExceededError as e:
             logger.warning("Daily cost cap reached during job %s enrichment: %s", job_id, e)

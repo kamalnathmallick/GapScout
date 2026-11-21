@@ -29,9 +29,9 @@ class Settings(BaseSettings):
     geocoder_user_agent: str = "gapscout/1.0 (you@example.com)"
 
     # LLM Settings
-    anthropic_api_key: str = ""
-    llm_model_fast: str = "claude-3-5-haiku-20241022"
-    llm_model_quality: str = "claude-3-5-sonnet-20241022"
+    gemini_api_key: str = ""
+    llm_model_fast: str = "gemini-2.5-flash"
+    llm_model_quality: str = "gemini-2.5-pro"
     llm_daily_cost_cap_usd: float = 2.0
 
     # Comma-separated list, kept as a string so pydantic-settings does not try

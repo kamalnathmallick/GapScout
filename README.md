@@ -44,7 +44,7 @@ flowchart TD
         LS --> UI[Next.js 16 Web Dashboard]
         HM --> MAP[deck.gl H3HexagonLayer + MapLibre GL]
         UI --> DRAWER[Lead Drawer: Why this score + Citations]
-        DRAWER --> DRAFT[Grounded Outreach Drafter: Anthropic Claude / Rules]
+        DRAWER --> DRAFT[Grounded Outreach Drafter: Google Gemini API / Rules]
         DRAFT -->|Zero Auto-Send| HUMAN[Human Review & Dispatch]
         HUMAN -->|Mark Contacted & Log Reply| OE
     end
@@ -100,7 +100,7 @@ flowchart TD
 | **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS | Server-rendered React 19 web application |
 | **Map Rendering** | deck.gl v9, MapLibre GL | WebGL hexagonal overlay and vector map layers |
 | **Scraper Service** | `gosom/google-maps-scraper` | Containerized open-source scraper in Docker |
-| **LLM Enrichment** | Anthropic Claude API (Sonnet / Haiku) | Grounded website audit & review theme extraction |
+| **LLM Enrichment** | Google Gemini API (`google-genai`: Flash / Pro) | Grounded website audit & review theme extraction |
 | **Quality & CI** | Pytest, Vitest, Playwright, Ruff, Mypy, ESLint | 350+ tests, scraper contract tests, CI pipelines |
 
 ---

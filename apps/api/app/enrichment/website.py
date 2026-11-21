@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.enrichment.anthropic_client import AnthropicClient
+from app.enrichment.gemini_client import GeminiClient
 from app.enrichment.safe_fetcher import fetch_website_safely
 from app.models import Enrichment, Lead, LeadFeature, Place
 
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class LLMWebsiteAudit(BaseModel):
-    """Structured website evaluation produced by Claude."""
+    """Structured website evaluation produced by Gemini."""
 
     headline: str = Field(description="Short summary of web storefront")
     clarity_score: int = Field(ge=1, le=5, description="Value proposition clarity 1-5")
@@ -49,7 +49,8 @@ def audit_place_website(
     session: Session,
     place: Place,
     force: bool = False,
-    anthropic_client: AnthropicClient | None = None,
+    gemini_client: GeminiClient | None = None,
+    anthropic_client: GeminiClient | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Run safe website audit or return cached result if content has not changed."""
     if not place.website:
@@ -80,7 +81,7 @@ def audit_place_website(
             return cached.content, True
 
     # 3. Request LLM audit
-    client = anthropic_client or AnthropicClient()
+    client = gemini_client or anthropic_client or GeminiClient()
     prompt_context = (
         f"Business Name: {place.name}\n"
         f"Category: {place.normalized_category or place.category}\n"

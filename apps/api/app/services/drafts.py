@@ -9,7 +9,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.enrichment.anthropic_client import AnthropicClient
+from app.enrichment.gemini_client import GeminiClient
 from app.models import Enrichment, Lead, OfferProfile, OutreachDraft, Place
 from app.services.dnc import is_lead_dnc
 
@@ -190,11 +190,11 @@ def generate_and_save_draft(
     enrichments_map: dict[str, Any] = {e.kind: e.content for e in enrichment_rows}
 
     # 4. Generate draft body
-    client = AnthropicClient()
+    client = GeminiClient()
     body = None
 
     if client.api_key and client.api_key.strip() not in ("", "placeholder", "test-key"):
-        # Claude-generated draft with length constraints
+        # Gemini-generated draft with length constraints
         channel_constraint = (
             f"STRICT LIMIT: Must be under {MAX_CHAT_CHARS} characters including opt-out."
             if channel == "chat"
@@ -233,7 +233,7 @@ def generate_and_save_draft(
             )
             body = draft_model.body
         except Exception as e:
-            logger.warning("Claude draft generation failed, falling back to deterministic: %s", e)
+            logger.warning("Gemini draft generation failed, falling back to deterministic: %s", e)
             body = None
 
     if not body:

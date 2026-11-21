@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.cleaning.allow_list import sanitize_raw_business_data
 from app.cleaning.pipeline import clean_and_normalize_place
-from app.enrichment.anthropic_client import AnthropicClient
+from app.enrichment.gemini_client import GeminiClient
 from app.enrichment.safe_fetcher import SSRFBlockedError, validate_url_and_check_ssrf
 from app.main import app
 from app.models import Lead, OfferProfile, Place, Workspace
@@ -66,7 +66,7 @@ def test_prompt_injection_quarantine_in_anthropic_client(db_session: Session):
     db_session.add(ws)
     db_session.commit()
 
-    client = AnthropicClient(api_key="test-key")
+    client = GeminiClient(api_key="test-key")
 
     adversarial_payload = (
         "Normal business review text.\n"

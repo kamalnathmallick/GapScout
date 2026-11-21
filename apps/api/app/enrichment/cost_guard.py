@@ -14,9 +14,12 @@ logger = logging.getLogger(__name__)
 
 # Model pricing in USD per 1,000,000 tokens
 MODEL_PRICING: dict[str, dict[str, float]] = {
+    "flash": {"prompt": 0.15, "completion": 0.60},
+    "pro": {"prompt": 1.25, "completion": 5.00},
+    "gemini": {"prompt": 0.15, "completion": 0.60},
     "haiku": {"prompt": 0.80, "completion": 4.00},
     "sonnet": {"prompt": 3.00, "completion": 15.00},
-    "default": {"prompt": 1.00, "completion": 5.00},
+    "default": {"prompt": 0.50, "completion": 2.00},
 }
 
 
@@ -29,10 +32,16 @@ class CostCapExceededError(RuntimeError):
 def calculate_cost_usd(model_name: str, prompt_tokens: int, completion_tokens: int) -> float:
     """Calculate USD cost for a given token usage."""
     model_lower = model_name.lower()
-    if "haiku" in model_lower:
-        pricing = MODEL_PRICING["haiku"]
+    if "flash" in model_lower:
+        pricing = MODEL_PRICING["flash"]
     elif "sonnet" in model_lower:
         pricing = MODEL_PRICING["sonnet"]
+    elif "pro" in model_lower:
+        pricing = MODEL_PRICING["pro"]
+    elif "haiku" in model_lower:
+        pricing = MODEL_PRICING["haiku"]
+    elif "gemini" in model_lower:
+        pricing = MODEL_PRICING["gemini"]
     else:
         pricing = MODEL_PRICING["default"]
 

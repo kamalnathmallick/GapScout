@@ -29,6 +29,14 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
+### 2026-11-21 - LLM Backend Migration to Google Gemini API
+- Switched LLM backend from Anthropic Claude to Google Gemini API via official `google-genai` SDK.
+- Updated `apps/api/app/config.py` and `.env.example`: replaced `ANTHROPIC_API_KEY` with `GEMINI_API_KEY`, defaulting to `gemini-2.5-flash` (fast) and `gemini-2.5-pro` (quality).
+- Implemented `GeminiClient` in `apps/api/app/enrichment/gemini_client.py` using `google.genai.Client` with structured JSON output (`response_mime_type="application/json"` and Pydantic schema validation), automatic 1-retry on invalid JSON, prompt-injection defense (`<untrusted_scraped_data>`), and deterministic offline mock fallback when API key is unset.
+- Updated `website.py`, `reviews.py`, `pipeline.py`, and `services/drafts.py` to use `GeminiClient`.
+- Preserved daily workspace cost cap tracking (`CostGuard`), token accounting, and SHA-256 content-hash caching.
+- Verified: All 352 backend pytest tests passing, `ruff check`, `ruff format`, and `mypy` (77 files) clean.
+
 ### 2026-11-21 - Frontend SaaS UI Overhaul (Linear + Kepler.gl / Felt Grade)
 - Upgraded the entire `apps/web` frontend to a production-grade SaaS UI without altering any backend API contracts.
 - Design System & App Shell: Configured `Inter` and `JetBrains_Mono` via `next/font/google`. Implemented SaaS App Shell with collapsible left sidebar (`w-60` / `w-16`), slim top header with live backend `/health` status dot, breadcrumbs, zero-flash Light/Dark theme toggle (`useSyncExternalStore` + `localStorage`), and auto-dismissing global toast system (`useToast()`).

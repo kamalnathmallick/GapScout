@@ -29,6 +29,22 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
+### 2026-11-21 - Frontend SaaS UI Overhaul (Linear + Kepler.gl / Felt Grade)
+- Upgraded the entire `apps/web` frontend to a production-grade SaaS UI without altering any backend API contracts.
+- Design System & App Shell: Configured `Inter` and `JetBrains_Mono` via `next/font/google`. Implemented SaaS App Shell with collapsible left sidebar (`w-60` / `w-16`), slim top header with live backend `/health` status dot, breadcrumbs, zero-flash Light/Dark theme toggle (`useSyncExternalStore` + `localStorage`), and auto-dismissing global toast system (`useToast()`).
+- Geospatial Command Center (`/gap/[id]`): Full-bleed layout (`h-[calc(100vh-3.5rem)]`) with dynamic 1-click basemap switcher (Dark, Positron, Fiord, Liberty via OpenFreeMap vector tiles), deck.gl `H3HexagonLayer` + `ScatterplotLayer`, floating glassmorphic KPI cards (top 3 underserved / saturated), live hex inspector side drawer, and PNG snapshot export.
+- Leads CRM & Outreach Drawer: Filter bar, status pills, score badges, bulk actions, and 5-tab inspector drawer (`Overview`, `Why This Score`, `Audit & Reviews`, `Draft Outreach`, `Timeline`). Integrated grounded outreach generator with live char/word counters, guaranteed opt-out line, copy button, and direct `mailto:` / `wa.me` links.
+- Model Insights & Active Learning: Polished SVG ROC and calibration reliability curves with hover tooltips, feature importance horizontal bars, model registry with one-click rollback, active learning decision cards for uncertain prospects (0.35-0.65 boundary).
+- Settings & Danger Zone: 2-column vertical-tab layout with interactive scoring formula sliders, live sum indicator, 1-click reset to defaults, workspace caps, and red-bordered Danger Zone for irreversible DPDP/GDPR account deletion.
+- How to test:
+  - `npm --prefix apps/web run lint` (0 errors, 0 warnings)
+  - `npm --prefix apps/web run format:check` (All files match Prettier)
+  - `npm --prefix apps/web run typecheck` (0 errors)
+  - `npm --prefix apps/web test` (17/17 Vitest tests passing)
+  - `npm --prefix apps/web run build` (Next.js 16.4.6 Turbopack production build clean)
+- Verified: GitHub Actions run 44862234546 completed with `2/2` green (`API lint and tests` + `Web lint, types and build`).
+- Commit: `d9535df`.
+
 ### 2026-11-20 - CI Fix: Resolve failing GitHub Actions checks (2/2 Green)
 - Diagnosed failing `API lint and tests` in workflow runs since commit `af11567`: `test_api_security_headers_present` asserted `response.status_code == 200` on `/health` which returned HTTP 503 in CI due to missing Redis service container.
 - Added Redis service container (`redis:7-alpine`) and `REDIS_URL` to `.github/workflows/ci.yml`.

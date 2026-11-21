@@ -30,7 +30,10 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       className={`${inter.variable} ${jetbrainsMono.variable} dark`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen bg-[#090d16] text-slate-100 font-sans antialiased">
+      <body
+        suppressHydrationWarning
+        className="min-h-screen bg-[#090d16] text-slate-100 font-sans antialiased"
+      >
         <Providers>
           <AppShell>{children}</AppShell>
         </Providers>

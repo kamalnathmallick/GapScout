@@ -50,6 +50,7 @@ class ApiClient {
     if (typeof window === "undefined") return;
     localStorage.removeItem("gapscout_access_token");
     localStorage.removeItem("gapscout_refresh_token");
+    window.dispatchEvent(new Event("storage"));
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
@@ -70,6 +71,9 @@ class ApiClient {
     });
 
     if (!response.ok) {
+      if (response.status === 401) {
+        this.clearAuth();
+      }
       let errorMessage = `HTTP error ${response.status}`;
       try {
         const errorData = await response.json();

@@ -181,7 +181,9 @@ export default function GapMapPage() {
         <div className="glass-panel bg-white/90 dark:bg-[#0B0F17]/90 px-3.5 py-1.5 rounded-xl border border-slate-200/90 dark:border-[#1F2937] text-xs shadow-lg flex items-center gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-bold text-slate-900 dark:text-white font-mono">Market Gap Intelligence</span>
+            <span className="font-bold text-slate-900 dark:text-white font-mono">
+              Market Gap Intelligence
+            </span>
           </div>
           <span className="text-slate-300 dark:text-slate-700">|</span>
           <span className="font-semibold text-indigo-600 dark:text-indigo-400 capitalize">
@@ -225,7 +227,9 @@ export default function GapMapPage() {
         <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-900/50 dark:bg-slate-950/80">
           <div className="glass-panel bg-white/95 dark:bg-[#0B0F17]/95 border border-slate-200 dark:border-[#1F2937] p-6 rounded-2xl max-w-md text-center space-y-3 shadow-2xl">
             <Layers className="w-8 h-8 text-rose-500 dark:text-rose-400 mx-auto" />
-            <p className="text-sm font-semibold text-slate-900 dark:text-white">Could not load gap analysis</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              Could not load gap analysis
+            </p>
             <p className="text-xs text-rose-600 dark:text-rose-300">
               {hexError instanceof Error ? hexError.message : "Data unavailable"}
             </p>

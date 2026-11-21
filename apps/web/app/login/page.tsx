@@ -20,7 +20,10 @@ export default function LoginPage() {
 
     try {
       await api.login({ email, password });
-      router.push("/dashboard");
+      const searchParams =
+        typeof window !== "undefined" ? new URLSearchParams(window.location.search) : null;
+      const redirect = searchParams?.get("redirect") || "/dashboard";
+      router.push(redirect);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to sign in");
     } finally {

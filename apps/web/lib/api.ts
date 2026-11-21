@@ -77,7 +77,17 @@ class ApiClient {
       let errorMessage = `HTTP error ${response.status}`;
       try {
         const errorData = await response.json();
-        errorMessage = errorData.message || errorData.detail || errorMessage;
+        if (typeof errorData.detail === "string") {
+          errorMessage = errorData.detail;
+        } else if (Array.isArray(errorData.detail)) {
+          errorMessage = errorData.detail
+            .map((e: { msg?: string; message?: string }) => e.msg || e.message || JSON.stringify(e))
+            .join("; ");
+        } else if (typeof errorData.message === "string") {
+          errorMessage = errorData.message;
+        } else if (typeof errorData.detail === "object" && errorData.detail !== null) {
+          errorMessage = JSON.stringify(errorData.detail);
+        }
       } catch {
         // Fallback to status text
       }

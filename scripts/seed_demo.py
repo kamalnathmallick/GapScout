@@ -51,8 +51,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 DEMO_WORKSPACE_NAME = "GapScout Demo"
-DEMO_USER_EMAIL = "demo@gapscout.test"
-DEMO_USER_PASSWORD = "DemoPassword123!"
+DEMO_USER_EMAIL = "demo@gapscout.com"
+DEMO_USER_PASSWORD = "DemoPass123!"
 
 # Bangalore central hotspots: Indiranagar & Koramangala
 BANGALORE_PLACES = [

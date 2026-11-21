@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Brain,
   Search,
+  MapPin,
 } from "lucide-react";
 import { LeadOut } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -397,13 +398,31 @@ export default function LeadsPage() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                        <button
-                          onClick={() => setSelectedLeadId(lead.id)}
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md font-medium text-xs inline-flex items-center gap-1 transition-colors"
-                        >
-                          <span>Open</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
+                        <div className="inline-flex items-center gap-1.5">
+                          {place?.name && (
+                            <a
+                              href={
+                                place.latitude && place.longitude
+                                  ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || "")}+${place.latitude},${place.longitude}`
+                                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " " + (place.address || ""))}`
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="View on Google Maps"
+                              className="p-1.5 rounded-md text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MapPin className="w-3.5 h-3.5" />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => setSelectedLeadId(lead.id)}
+                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-md font-medium text-xs inline-flex items-center gap-1 transition-colors"
+                          >
+                            <span>Open</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { HexMetricOut, PlaceOut, PlacesListOut } from "@/lib/types";
+import { cellToLatLng } from "h3-js";
 
 interface HexDrawerProps {
   hex: HexMetricOut | null;
@@ -34,6 +35,15 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
           }),
     enabled: !!hex,
   });
+
+  const [hexLat, hexLon] = React.useMemo(() => {
+    if (!hex) return [0, 0];
+    try {
+      return cellToLatLng(hex.h3_index);
+    } catch {
+      return [0, 0];
+    }
+  }, [hex]);
 
   if (!hex) return null;
 
@@ -64,6 +74,9 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
   const reasons = hex.explanation?.top_reasons || [];
   const places = placesData?.items || [];
 
+  const hexGoogleMapsUrl =
+    hexLat && hexLon ? `https://www.google.com/maps/@${hexLat},${hexLon},16z` : null;
+
   return (
     <aside
       data-testid="hex-drawer"
@@ -75,9 +88,21 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
           <div className="flex items-center gap-2 mb-1.5 font-mono text-xs">
             <Layers className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
             <span className="text-slate-500 dark:text-slate-400">H3 Res {hex.resolution}</span>
-            <span className="text-slate-400 dark:text-slate-500 truncate max-w-[150px]">
+            <span className="text-slate-400 dark:text-slate-500 truncate max-w-[120px]">
               {hex.h3_index}
             </span>
+            {hexGoogleMapsUrl && (
+              <a
+                href={hexGoogleMapsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-[10px] text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 font-sans hover:underline ml-1"
+                title="View H3 Zone in Google Maps"
+              >
+                <span>Google Maps</span>
+                <ExternalLink className="w-2.5 h-2.5" />
+              </a>
+            )}
           </div>
           <div>{getScoreBadge(hex.opportunity_score, hex.label)}</div>
         </div>
@@ -228,6 +253,22 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
                         <ExternalLink className="w-2.5 h-2.5" />
                       </a>
                     )}
+
+                    <a
+                      href={
+                        place.latitude && place.longitude
+                          ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || "")}+${place.latitude},${place.longitude}`
+                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " " + (place.address || ""))}`
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 hover:underline"
+                      title="Open in Google Maps"
+                    >
+                      <MapPin className="w-3 h-3" />
+                      <span>Maps</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
                   </div>
                 </div>
               ))}

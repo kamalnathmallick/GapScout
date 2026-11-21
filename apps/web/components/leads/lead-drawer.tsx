@@ -15,6 +15,7 @@ import {
   TrendingDown,
   Search,
   MessageSquare,
+  Compass,
 } from "lucide-react";
 import { LeadOut } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -101,6 +102,18 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
 
   const place = lead.place;
 
+  const googleMapsUrl =
+    place?.latitude && place?.longitude
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name || "")}+${place.latitude},${place.longitude}`
+      : place?.name
+        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name + " " + (place.address || ""))}`
+        : null;
+
+  const directionsUrl =
+    place?.latitude && place?.longitude
+      ? `https://www.google.com/maps/dir/?api=1&destination=${place.latitude},${place.longitude}`
+      : null;
+
   const handleStatusChange = async (newStatus: string) => {
     setUpdating(true);
     try {
@@ -175,10 +188,24 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
           <h2 className="text-lg font-bold text-white tracking-tight truncate max-w-md">
             {place?.name || "Business Details"}
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1 truncate">
-            <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-            <span className="truncate">{place?.address || "Address not available"}</span>
-          </p>
+          <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-2 truncate">
+            <div className="flex items-center gap-1 truncate">
+              <MapPin className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+              <span className="truncate">{place?.address || "Address not available"}</span>
+            </div>
+            {googleMapsUrl && (
+              <a
+                href={googleMapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11px] text-indigo-400 hover:text-indigo-300 hover:underline font-medium flex-shrink-0"
+                title="Open location in Google Maps"
+              >
+                <span>Google Maps</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -319,20 +346,46 @@ export function LeadDrawer({ lead, onClose, onLeadUpdated }: LeadDrawerProps) {
                 </div>
               </div>
 
-              {place?.website && (
-                <div className="pt-2 border-t border-slate-800/80">
+              <div className="pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
+                {place?.website && (
                   <a
                     href={place.website}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 text-xs text-indigo-400 hover:text-indigo-300 font-mono"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 font-mono transition-colors"
                   >
-                    <Globe className="w-3.5 h-3.5" />
-                    <span className="truncate">{place.website}</span>
+                    <Globe className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="truncate max-w-[120px]">Website</span>
                     <ExternalLink className="w-3 h-3 flex-shrink-0" />
                   </a>
-                </div>
-              )}
+                )}
+                {googleMapsUrl && (
+                  <a
+                    href={googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition-colors shadow-sm"
+                    title="View business on Google Maps"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>View on Google Maps</span>
+                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  </a>
+                )}
+                {directionsUrl && (
+                  <a
+                    href={directionsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition-colors shadow-sm"
+                    title="Get turn-by-turn directions via Google Maps"
+                  >
+                    <Compass className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Get Directions</span>
+                    <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                  </a>
+                )}
+              </div>
             </div>
 
             {/* Score Breakdown Strip */}

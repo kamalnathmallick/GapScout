@@ -7,7 +7,7 @@ x-api-env: &api-env
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://gapscout:gapscout@db:5432/gapscout}
   REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
   SECRET_KEY: ${SECRET_KEY:-dev-only-change-me}
   SCRAPER_BASE_URL: ${SCRAPER_BASE_URL:-http://scraper:8080}
   SCRAPER_CONCURRENCY: ${SCRAPER_CONCURRENCY:-2}

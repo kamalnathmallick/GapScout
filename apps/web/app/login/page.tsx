@@ -25,7 +25,16 @@ export default function LoginPage() {
       const redirect = searchParams?.get("redirect") || "/dashboard";
       router.push(redirect);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to sign in");
+      if (err instanceof Error) {
+        setError(err.message);
+      } else if (typeof err === "string") {
+        setError(err);
+      } else if (typeof err === "object" && err !== null) {
+        const anyErr = err as Record<string, unknown>;
+        setError(String(anyErr.message || anyErr.detail || JSON.stringify(err)));
+      } else {
+        setError("Failed to sign in");
+      }
     } finally {
       setIsLoading(false);
     }

@@ -18,7 +18,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     """User login request."""
 
-    email: EmailStr
+    email: str = Field(..., min_length=3, description="User email address")
     password: str
 
 

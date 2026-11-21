@@ -67,21 +67,23 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
   return (
     <aside
       data-testid="hex-drawer"
-      className="absolute top-4 right-4 bottom-4 w-96 max-w-[calc(100vw-2rem)] glass-panel bg-slate-950/95 border border-slate-800 rounded-2xl shadow-2xl z-30 flex flex-col overflow-hidden text-white animate-in slide-in-from-right duration-300"
+      className="absolute top-4 right-4 bottom-4 w-96 max-w-[calc(100vw-2rem)] glass-panel bg-white/95 dark:bg-[#0B0F17]/95 border border-slate-200/90 dark:border-[#1F2937] rounded-2xl shadow-2xl z-30 flex flex-col overflow-hidden text-slate-900 dark:text-white animate-in slide-in-from-right duration-300"
     >
       {/* Header */}
-      <div className="p-5 border-b border-slate-800 flex items-start justify-between bg-slate-950/60">
+      <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between bg-slate-50/80 dark:bg-slate-950/60">
         <div>
           <div className="flex items-center gap-2 mb-1.5 font-mono text-xs">
-            <Layers className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-slate-400">H3 Res {hex.resolution}</span>
-            <span className="text-slate-500 truncate max-w-[150px]">{hex.h3_index}</span>
+            <Layers className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
+            <span className="text-slate-500 dark:text-slate-400">H3 Res {hex.resolution}</span>
+            <span className="text-slate-400 dark:text-slate-500 truncate max-w-[150px]">
+              {hex.h3_index}
+            </span>
           </div>
           <div>{getScoreBadge(hex.opportunity_score, hex.label)}</div>
         </div>
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           title="Close details"
         >
           <X className="w-4 h-4" />
@@ -92,8 +94,8 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
       <div className="flex-1 overflow-y-auto p-5 space-y-6">
         {/* Reasons */}
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 font-mono">
-            <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-mono">
+            <TrendingUp className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
             <span>Opportunity Reasons</span>
           </h3>
           {reasons.length > 0 ? (
@@ -101,53 +103,55 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
               {reasons.map((r, i) => (
                 <li
                   key={i}
-                  className="text-xs text-slate-300 bg-slate-900/80 p-2.5 rounded-xl border border-slate-800/80 flex items-start gap-2"
+                  className="text-xs text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-900/80 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800/80 flex items-start gap-2"
                 >
-                  <span className="text-indigo-400 font-bold">•</span>
+                  <span className="text-indigo-500 dark:text-indigo-400 font-bold">•</span>
                   <span>{r}</span>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="text-xs text-slate-500">No detailed reasons recorded for this cell.</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">
+              No detailed reasons recorded for this cell.
+            </p>
           )}
         </div>
 
         {/* Metrics Grid */}
         <div className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 font-mono">
-            <Building2 className="w-3.5 h-3.5 text-indigo-400" />
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-mono">
+            <Building2 className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
             <span>Hex Metrics</span>
           </h3>
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80">
+            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80">
               <span className="text-slate-500 block mb-0.5 text-[11px]">Competitor Supply</span>
-              <span className="text-base font-bold font-mono text-white tabular-nums">
+              <span className="text-base font-bold font-mono text-slate-900 dark:text-white tabular-nums">
                 {hex.supply_count} businesses
               </span>
             </div>
 
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80">
+            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80">
               <span className="text-slate-500 block mb-0.5 text-[11px]">Supply Density</span>
-              <span className="text-base font-bold font-mono text-white tabular-nums">
+              <span className="text-base font-bold font-mono text-slate-900 dark:text-white tabular-nums">
                 {hex.density_per_km2 ? hex.density_per_km2.toFixed(1) : "0"} / km²
               </span>
             </div>
 
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80">
+            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80">
               <span className="text-slate-500 block mb-0.5 text-[11px]">Average Rating</span>
-              <span className="text-base font-bold font-mono text-white flex items-center gap-1 tabular-nums">
-                <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              <span className="text-base font-bold font-mono text-slate-900 dark:text-white flex items-center gap-1 tabular-nums">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
                 {hex.avg_rating ? hex.avg_rating.toFixed(1) : "N/A"}
-                <span className="text-xs text-slate-500 font-normal">
+                <span className="text-xs text-slate-400 dark:text-slate-500 font-normal">
                   ({hex.avg_review_count || 0} rev)
                 </span>
               </span>
             </div>
 
-            <div className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80">
+            <div className="bg-slate-50 dark:bg-slate-900/80 p-3 rounded-xl border border-slate-200 dark:border-slate-800/80">
               <span className="text-slate-500 block mb-0.5 text-[11px]">Demand Proxy</span>
-              <span className="text-base font-bold font-mono text-indigo-400 tabular-nums">
+              <span className="text-base font-bold font-mono text-indigo-500 dark:text-indigo-400 tabular-nums">
                 {hex.demand_proxy ? Math.round(hex.demand_proxy) : "0"}
               </span>
             </div>
@@ -157,8 +161,8 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
         {/* Businesses inside hex */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 font-mono">
-              <MapPin className="w-3.5 h-3.5 text-indigo-400" />
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5 font-mono">
+              <MapPin className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
               <span>Businesses in Hex ({places.length})</span>
             </h3>
           </div>
@@ -168,13 +172,15 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
               {[1, 2].map((n) => (
                 <div
                   key={n}
-                  className="h-16 rounded-xl bg-slate-900/40 border border-slate-800 animate-pulse"
+                  className="h-16 rounded-xl bg-slate-100 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 animate-pulse"
                 />
               ))}
             </div>
           ) : places.length === 0 ? (
-            <div className="text-center py-6 px-4 bg-slate-900/40 rounded-xl border border-slate-800 text-xs text-slate-400">
-              <p className="font-semibold text-emerald-400 mb-1">Zero Direct Competitors</p>
+            <div className="text-center py-6 px-4 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+              <p className="font-semibold text-emerald-600 dark:text-emerald-400 mb-1">
+                Zero Direct Competitors
+              </p>
               <p className="text-slate-500">
                 This cell is currently unserved by existing businesses in this category.
               </p>
@@ -184,15 +190,15 @@ export function HexDrawer({ hex, onClose }: HexDrawerProps) {
               {places.map((place: PlaceOut) => (
                 <div
                   key={place.id}
-                  className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 transition-colors text-xs space-y-1.5"
+                  className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-colors text-xs space-y-1.5"
                 >
                   <div className="flex justify-between items-start">
-                    <span className="font-semibold text-white truncate max-w-[200px]">
+                    <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[200px]">
                       {place.name}
                     </span>
                     {place.rating !== null && (
-                      <span className="inline-flex items-center gap-1 font-mono text-amber-400 font-medium tabular-nums">
-                        <Star className="w-3 h-3 fill-amber-400" />
+                      <span className="inline-flex items-center gap-1 font-mono text-amber-500 font-medium tabular-nums">
+                        <Star className="w-3 h-3 fill-amber-500" />
                         {place.rating.toFixed(1)}
                       </span>
                     )}

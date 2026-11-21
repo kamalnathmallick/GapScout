@@ -29,6 +29,20 @@ Settings are in BUILD_PLAN.md (RUN_MODE, BUILD_PATH, DEPLOY_TARGET).
 ## Log
 (newest first. For each finished prompt: date, what changed, how to run, how to test, decisions and deviations)
 
+### 2026-11-21 - Stitch UI Light/Dark Design & Progressive H3 Zoom
+- Applied Google Stitch UI design export (`docs/stitch-export/`) to `apps/web`:
+  - V1 as Light Mode: Crisp Positron basemap (`https://tiles.openfreemap.org/styles/positron`), translucent emerald/amber/coral hex fills with slate borders, and frosted white glass panels (`bg-white/90 border-slate-200/90`).
+  - V2 as Dark Mode: Glowing dark basemap (`https://tiles.openfreemap.org/styles/dark`), illuminated elevated hex fills with `#1F2937` borders, and obsidian glass panels (`bg-[#0B0F17]/90 border-[#1F2937]`).
+  - Dynamically wired theme toggle (`useTheme()`) to auto-switch basemap and glass panels between V1 Positron and V2 Dark while preserving 1-click basemap style picker.
+  - Progressive Zoom-In Subdivision: Implemented H3 resolution control bar (`City Res 7 → Neighborhood Res 8 → Street Res 9`). Res 9 dynamically subdivides parent hexes into 7 child hexes via `cellToChildren` and overlays individual business pins with Deck.gl `TextLayer` star rating pills (`★ 4.8`) and `ScatterplotLayer` markers.
+  - Cleaned up temporary Stitch export directory and scripts.
+- How to test:
+  - `npm --prefix apps/web run lint` (0 errors)
+  - `npm --prefix apps/web run format:check` (All files match Prettier)
+  - `npm --prefix apps/web run typecheck` (0 errors)
+  - `npm --prefix apps/web test` (17/17 Vitest tests passing)
+  - `npm --prefix apps/web run build` (Next.js 16.4.6 Turbopack production build clean)
+
 ### 2026-11-21 - LLM Backend Migration to Google Gemini API
 - Switched LLM backend from Anthropic Claude to Google Gemini API via official `google-genai` SDK.
 - Updated `apps/api/app/config.py` and `.env.example`: replaced `ANTHROPIC_API_KEY` with `GEMINI_API_KEY`, defaulting to `gemini-2.5-flash` (fast) and `gemini-2.5-pro` (quality).

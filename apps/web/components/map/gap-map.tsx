@@ -12,8 +12,8 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
-import { ScatterplotLayer } from "@deck.gl/layers";
-import { cellToLatLng } from "h3-js";
+import { ScatterplotLayer, TextLayer } from "@deck.gl/layers";
+import { cellToLatLng, cellToChildren, cellToParent } from "h3-js";
 import { HexMetricOut, PlaceOut } from "@/lib/types";
 import { MetricType, getMetricColor } from "@/lib/color-scale";
 
@@ -21,6 +21,7 @@ export interface GapMapRef {
   flyToHex: (h3Index: string) => void;
   getCanvasDataURL: () => string | null;
   setBasemapStyle: (styleUrl: string) => void;
+  setZoomLevel: (zoom: number) => void;
 }
 
 interface GapMapProps {
@@ -32,6 +33,8 @@ interface GapMapProps {
   selectedHex: HexMetricOut | null;
   onSelectHex: (hex: HexMetricOut) => void;
   basemapStyle?: string;
+  resolution?: number;
+  onResolutionChange?: (res: number) => void;
 }
 
 export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
@@ -44,6 +47,8 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
     selectedHex,
     onSelectHex,
     basemapStyle = "https://tiles.openfreemap.org/styles/dark",
+    resolution = 8,
+    onResolutionChange,
   },
   ref,
 ) {
@@ -56,6 +61,58 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
     x: number;
     y: number;
   } | null>(null);
+
+  // Progressive subdivision and aggregation based on H3 resolution
+  const displayHexes = React.useMemo<HexMetricOut[]>(() => {
+    if (!hexes || hexes.length === 0) return [];
+
+    if (resolution === 9) {
+      // Subdivide each hex into 7 child Res-9 sub-hexes (Progressive Street-level View)
+      const subHexes: HexMetricOut[] = [];
+      for (const h of hexes) {
+        try {
+          const children = cellToChildren(h.h3_index, 9);
+          for (let i = 0; i < children.length; i++) {
+            const child = children[i];
+            if (!child) continue;
+            subHexes.push({
+              ...h,
+              id: `${h.id || h.h3_index}-c${i}`,
+              h3_index: child,
+              resolution: 9,
+            });
+          }
+        } catch {
+          subHexes.push(h);
+        }
+      }
+      return subHexes;
+    }
+
+    if (resolution === 7) {
+      // Coarser City-level view: group hexes into parent Res-7 cells
+      const parentMap = new Map<string, HexMetricOut>();
+      for (const h of hexes) {
+        try {
+          const parentIdx = cellToParent(h.h3_index, 7);
+          if (!parentMap.has(parentIdx)) {
+            parentMap.set(parentIdx, {
+              ...h,
+              id: `p7-${parentIdx}`,
+              h3_index: parentIdx,
+              resolution: 7,
+            });
+          }
+        } catch {
+          parentMap.set(h.h3_index, h);
+        }
+      }
+      return Array.from(parentMap.values());
+    }
+
+    // Default: Neighborhood Res 8
+    return hexes;
+  }, [hexes, resolution]);
 
   // Center calculation from hexes
   const defaultCenter = React.useMemo<[number, number]>(() => {
@@ -70,14 +127,14 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
     return [77.63, 12.97];
   }, [hexes]);
 
-  // Expose flyTo, canvas capture, and style switch to parent via ref
+  // Expose flyTo, canvas capture, style switch, and zoom to parent via ref
   useImperativeHandle(ref, () => ({
     flyToHex: (h3Index: string) => {
       try {
         const [lat, lon] = cellToLatLng(h3Index);
         mapRef.current?.flyTo({
           center: [lon, lat],
-          zoom: 14.5,
+          zoom: resolution === 9 ? 15.2 : 14.2,
           speed: 1.4,
           essential: true,
         });
@@ -98,6 +155,11 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
         mapRef.current.setStyle(styleUrl);
       }
     },
+    setZoomLevel: (zoom: number) => {
+      if (mapRef.current) {
+        mapRef.current.zoomTo(zoom, { duration: 800 });
+      }
+    },
   }));
 
   // Handle deck.gl layer updates
@@ -106,12 +168,12 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
 
     const layers = [];
 
-    // 1. H3 Hexagons Layer
-    if (hexes.length > 0) {
+    // 1. H3 Hexagons Layer (using displayHexes for progressive subdivision)
+    if (displayHexes.length > 0) {
       layers.push(
         new H3HexagonLayer<HexMetricOut>({
           id: "h3-gap-layer",
-          data: hexes,
+          data: displayHexes,
           pickable: true,
           wireframe: false,
           filled: true,
@@ -120,7 +182,7 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
           getFillColor: (d) => getMetricColor(d, activeMetric, opacity),
           getLineColor: (d) =>
             selectedHex?.h3_index === d.h3_index ? [255, 255, 255, 255] : [255, 255, 255, 40],
-          lineWidthMinPixels: selectedHex ? 2.5 : 1,
+          lineWidthMinPixels: selectedHex ? 2.5 : resolution === 9 ? 0.75 : 1,
           onHover: (info) => {
             if (info.object) {
               setHoverInfo({
@@ -138,38 +200,75 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
             }
           },
           updateTriggers: {
-            getFillColor: [activeMetric, opacity],
+            getFillColor: [activeMetric, opacity, resolution],
             getLineColor: [selectedHex?.h3_index],
-            lineWidthMinPixels: [selectedHex?.h3_index],
+            lineWidthMinPixels: [selectedHex?.h3_index, resolution],
           },
         }),
       );
     }
 
-    // 2. Business Markers Layer
-    if (showMarkers && places.length > 0) {
+    // 2. Business Markers & Street-Level Rating Pills
+    const shouldShowPins = showMarkers || resolution === 9;
+    if (shouldShowPins && places.length > 0) {
       const validPlaces = places.filter((p) => p.longitude !== null && p.latitude !== null);
+
+      // Pin dot marker
       layers.push(
         new ScatterplotLayer<PlaceOut>({
           id: "places-scatter-layer",
           data: validPlaces,
           pickable: true,
-          opacity: 0.9,
+          opacity: 0.95,
           stroked: true,
           filled: true,
           radiusScale: 1,
-          radiusMinPixels: 4,
-          radiusMaxPixels: 10,
+          radiusMinPixels: resolution === 9 ? 5 : 4,
+          radiusMaxPixels: 12,
           lineWidthMinPixels: 1.5,
           getPosition: (d) => [d.longitude!, d.latitude!],
-          getFillColor: [244, 63, 94, 220], // Coral / Rose
-          getLineColor: [255, 255, 255, 220],
+          getFillColor: [244, 63, 94, 230], // Coral / Rose
+          getLineColor: [255, 255, 255, 230],
         }),
       );
+
+      // Star rating badge pills (Stitch V1 / V2 street pins)
+      const placesWithRating = validPlaces.filter(
+        (p) => p.rating !== null && p.rating !== undefined,
+      );
+      if (placesWithRating.length > 0) {
+        layers.push(
+          new TextLayer<PlaceOut>({
+            id: "places-rating-pill-layer",
+            data: placesWithRating,
+            pickable: false,
+            getPosition: (d) => [d.longitude!, d.latitude!],
+            getText: (d) => `★ ${d.rating?.toFixed(1)}`,
+            getSize: resolution === 9 ? 11 : 9.5,
+            getColor: [255, 255, 255, 255],
+            getBackgroundColor: [15, 23, 42, 230],
+            background: true,
+            backgroundPadding: [4, 2, 4, 2],
+            fontFamily: "JetBrains Mono, monospace",
+            fontWeight: 600,
+            getPixelOffset: [0, -14],
+            billboard: true,
+          }),
+        );
+      }
     }
 
     overlayRef.current.setProps({ layers });
-  }, [hexes, places, activeMetric, opacity, showMarkers, selectedHex, onSelectHex]);
+  }, [
+    displayHexes,
+    places,
+    activeMetric,
+    opacity,
+    showMarkers,
+    resolution,
+    selectedHex,
+    onSelectHex,
+  ]);
 
   // Handle basemap style switch
   useEffect(() => {
@@ -217,13 +316,28 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
       updateDeckLayers();
     });
 
+    // Progressive zoom-in subdivision listener
+    const handleZoomEnd = () => {
+      if (!mapRef.current || !onResolutionChange) return;
+      const currentZoom = mapRef.current.getZoom();
+      if (currentZoom >= 14.5 && resolution !== 9) {
+        onResolutionChange(9);
+      } else if (currentZoom < 12.0 && resolution !== 7) {
+        onResolutionChange(7);
+      } else if (currentZoom >= 12.0 && currentZoom < 14.5 && resolution !== 8) {
+        onResolutionChange(8);
+      }
+    };
+
+    map.on("zoomend", handleZoomEnd);
+
     return () => {
       overlay.finalize();
       map.remove();
       mapRef.current = null;
       overlayRef.current = null;
     };
-  }, [defaultCenter, updateDeckLayers, basemapStyle]);
+  }, [defaultCenter, updateDeckLayers, basemapStyle, onResolutionChange, resolution]);
 
   // Update deck layers when state changes
   useEffect(() => {
@@ -240,20 +354,22 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
           className="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-3"
           style={{ left: hoverInfo.x, top: hoverInfo.y }}
         >
-          <div className="bg-slate-950/95 backdrop-blur-md border border-slate-700/80 rounded-xl px-3 py-2 text-xs shadow-2xl text-white font-mono space-y-1">
-            <div className="flex items-center justify-between gap-3 text-[11px] text-slate-400">
+          <div className="glass-panel bg-white/95 dark:bg-slate-950/95 border border-slate-200/90 dark:border-slate-700/80 rounded-xl px-3 py-2 text-xs shadow-2xl text-slate-900 dark:text-white font-mono space-y-1">
+            <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500 dark:text-slate-400">
               <span>H3 Hex</span>
-              <span className="text-slate-200">{hoverInfo.object.h3_index.slice(0, 10)}...</span>
+              <span className="text-slate-700 dark:text-slate-200 font-semibold">
+                {hoverInfo.object.h3_index.slice(0, 10)}...
+              </span>
             </div>
             <div className="flex items-center justify-between gap-4 font-bold">
               <span>Opportunity Score</span>
-              <span className="text-emerald-400 tabular-nums">
+              <span className="text-emerald-600 dark:text-emerald-400 tabular-nums">
                 {Math.round(hoverInfo.object.opportunity_score ?? 0)}/100
               </span>
             </div>
-            <div className="flex items-center justify-between gap-4 text-[11px] text-slate-300">
+            <div className="flex items-center justify-between gap-4 text-[11px] text-slate-600 dark:text-slate-300">
               <span>Competitors</span>
-              <span className="text-slate-100 tabular-nums">
+              <span className="text-slate-900 dark:text-slate-100 tabular-nums font-semibold">
                 {hoverInfo.object.supply_count} businesses
               </span>
             </div>

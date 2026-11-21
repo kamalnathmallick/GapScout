@@ -10,6 +10,11 @@ import React, {
 } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+// Configure MapLibre web worker location for Next.js / Turbopack
+if (typeof window !== "undefined") {
+  maplibregl.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+}
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { ScatterplotLayer, TextLayer } from "@deck.gl/layers";

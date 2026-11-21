@@ -1,7 +1,16 @@
 "use client";
 
 import React, { useState } from "react";
-import { Layers, Sliders, MapPin, Download, Share2, FileSpreadsheet, Check } from "lucide-react";
+import {
+  Layers,
+  Sliders,
+  MapPin,
+  Download,
+  Share2,
+  FileSpreadsheet,
+  Check,
+  Map as MapIcon,
+} from "lucide-react";
 import { MetricType, getLegendConfig } from "@/lib/color-scale";
 
 interface MapControlsProps {
@@ -15,7 +24,16 @@ interface MapControlsProps {
   onExportCSV: () => void;
   onShare: () => void;
   isExportingPNG?: boolean;
+  basemapStyle?: string;
+  onBasemapStyleChange?: (style: string) => void;
 }
+
+const BASEMAP_OPTIONS = [
+  { label: "Dark", url: "https://tiles.openfreemap.org/styles/dark" },
+  { label: "Positron", url: "https://tiles.openfreemap.org/styles/positron" },
+  { label: "Fiord", url: "https://tiles.openfreemap.org/styles/fiord" },
+  { label: "Liberty", url: "https://tiles.openfreemap.org/styles/liberty" },
+];
 
 export function MapControls({
   activeMetric,
@@ -28,6 +46,8 @@ export function MapControls({
   onExportCSV,
   onShare,
   isExportingPNG,
+  basemapStyle = "https://tiles.openfreemap.org/styles/dark",
+  onBasemapStyleChange,
 }: MapControlsProps) {
   const [copied, setCopied] = useState(false);
   const legend = getLegendConfig(activeMetric);
@@ -51,51 +71,78 @@ export function MapControls({
       data-testid="map-controls"
       className="absolute bottom-6 left-6 z-20 flex flex-col gap-3 max-w-sm w-full pointer-events-none"
     >
-      {/* Legend & Controls Card */}
-      <div className="bg-gray-900/95 backdrop-blur-md border border-gray-800 rounded-2xl p-4 shadow-2xl pointer-events-auto text-white space-y-4">
-        {/* Metric Selector */}
-        <div>
-          <label className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 block mb-1.5 flex items-center gap-1.5">
-            <Layers className="w-3.5 h-3.5 text-indigo-400" />
-            <span>Map Metric</span>
-          </label>
-          <select
-            data-testid="metric-select"
-            value={activeMetric}
-            onChange={(e) => onMetricChange(e.target.value as MetricType)}
-            className="w-full px-3 py-1.5 rounded-xl bg-gray-950 border border-gray-800 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
-          >
-            {metricOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+      {/* Legend & Controls Glass Card */}
+      <div className="glass-panel bg-slate-950/90 border border-slate-800/90 rounded-2xl p-4 shadow-2xl pointer-events-auto text-white space-y-4">
+        {/* Metric Selector & Basemap switcher row */}
+        <div className="space-y-3">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1.5">
+              <Layers className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Map Metric</span>
+            </label>
+            <select
+              data-testid="metric-select"
+              value={activeMetric}
+              onChange={(e) => onMetricChange(e.target.value as MetricType)}
+              className="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+            >
+              {metricOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 1-Click Basemap Style Switcher */}
+          {onBasemapStyleChange && (
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1.5">
+                <MapIcon className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Basemap Style</span>
+              </span>
+              <div className="grid grid-cols-4 gap-1">
+                {BASEMAP_OPTIONS.map((style) => (
+                  <button
+                    key={style.label}
+                    onClick={() => onBasemapStyleChange(style.url)}
+                    className={`py-1 px-2 rounded-lg text-[10px] font-medium transition-colors ${
+                      basemapStyle === style.url
+                        ? "bg-indigo-600 text-white font-semibold"
+                        : "bg-slate-900 hover:bg-slate-800 text-slate-300"
+                    }`}
+                  >
+                    {style.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Legend */}
         <div>
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 block mb-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-2">
             Legend: {legend.title}
           </span>
           <div className="grid grid-cols-2 gap-1.5 text-[11px]">
             {legend.items.map((item, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <span
-                  className="w-3 h-3 rounded-md flex-shrink-0 border border-black/30"
+                  className="w-3 h-3 rounded-md flex-shrink-0 border border-black/40"
                   style={{ backgroundColor: item.color }}
                 />
-                <span className="text-gray-300 truncate">{item.label}</span>
+                <span className="text-slate-300 truncate font-mono text-[10px]">{item.label}</span>
               </div>
             ))}
           </div>
         </div>
 
         {/* Sliders and Toggles */}
-        <div className="pt-2 border-t border-gray-800 space-y-3">
+        <div className="pt-2 border-t border-slate-800 space-y-3">
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-400 flex items-center gap-1.5">
-              <Sliders className="w-3.5 h-3.5 text-gray-500" />
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5 text-slate-500" />
               Hex Opacity: {Math.round(opacity * 100)}%
             </span>
             <input
@@ -110,12 +157,13 @@ export function MapControls({
           </div>
 
           <label className="flex items-center justify-between text-xs cursor-pointer select-none">
-            <span className="text-gray-400 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-gray-500" />
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-slate-500" />
               Show Business Markers
             </span>
             <input
               type="checkbox"
+              role="checkbox"
               checked={showMarkers}
               onChange={onToggleMarkers}
               className="w-4 h-4 rounded accent-indigo-500 cursor-pointer"
@@ -124,11 +172,11 @@ export function MapControls({
         </div>
 
         {/* Export Bar */}
-        <div className="pt-2 border-t border-gray-800 flex items-center gap-2">
+        <div className="pt-2 border-t border-slate-800 flex items-center gap-2">
           <button
             onClick={onExportPNG}
             disabled={isExportingPNG}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-gray-950 hover:bg-gray-800 border border-gray-800 text-xs text-gray-300 hover:text-white transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
             title="Download PNG snapshot of map"
           >
             <Download className="w-3.5 h-3.5" />
@@ -137,7 +185,7 @@ export function MapControls({
 
           <button
             onClick={onExportCSV}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-gray-950 hover:bg-gray-800 border border-gray-800 text-xs text-gray-300 hover:text-white transition-colors"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
             title="Download hex metrics as CSV"
           >
             <FileSpreadsheet className="w-3.5 h-3.5" />

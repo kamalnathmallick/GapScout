@@ -20,6 +20,7 @@ import { MetricType, getMetricColor } from "@/lib/color-scale";
 export interface GapMapRef {
   flyToHex: (h3Index: string) => void;
   getCanvasDataURL: () => string | null;
+  setBasemapStyle: (styleUrl: string) => void;
 }
 
 interface GapMapProps {
@@ -30,10 +31,20 @@ interface GapMapProps {
   showMarkers: boolean;
   selectedHex: HexMetricOut | null;
   onSelectHex: (hex: HexMetricOut) => void;
+  basemapStyle?: string;
 }
 
 export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
-  { hexes, places = [], activeMetric, opacity, showMarkers, selectedHex, onSelectHex },
+  {
+    hexes,
+    places = [],
+    activeMetric,
+    opacity,
+    showMarkers,
+    selectedHex,
+    onSelectHex,
+    basemapStyle = "https://tiles.openfreemap.org/styles/dark",
+  },
   ref,
 ) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -53,13 +64,13 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
         const [lat, lon] = cellToLatLng(hexes[0].h3_index);
         return [lon, lat];
       } catch {
-        return [77.63, 12.97]; // Indiranagar default
+        return [77.63, 12.97]; // Bangalore default
       }
     }
     return [77.63, 12.97];
   }, [hexes]);
 
-  // Expose flyTo and canvas capture to parent via ref
+  // Expose flyTo, canvas capture, and style switch to parent via ref
   useImperativeHandle(ref, () => ({
     flyToHex: (h3Index: string) => {
       try {
@@ -80,6 +91,11 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
         return mapRef.current.getCanvas().toDataURL("image/png");
       } catch {
         return null;
+      }
+    },
+    setBasemapStyle: (styleUrl: string) => {
+      if (mapRef.current) {
+        mapRef.current.setStyle(styleUrl);
       }
     },
   }));
@@ -104,7 +120,7 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
           getFillColor: (d) => getMetricColor(d, activeMetric, opacity),
           getLineColor: (d) =>
             selectedHex?.h3_index === d.h3_index ? [255, 255, 255, 255] : [255, 255, 255, 40],
-          lineWidthMinPixels: selectedHex ? 2 : 1,
+          lineWidthMinPixels: selectedHex ? 2.5 : 1,
           onHover: (info) => {
             if (info.object) {
               setHoverInfo({
@@ -144,10 +160,10 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
           radiusScale: 1,
           radiusMinPixels: 4,
           radiusMaxPixels: 10,
-          lineWidthMinPixels: 1,
+          lineWidthMinPixels: 1.5,
           getPosition: (d) => [d.longitude!, d.latitude!],
           getFillColor: [244, 63, 94, 220], // Coral / Rose
-          getLineColor: [255, 255, 255, 200],
+          getLineColor: [255, 255, 255, 220],
         }),
       );
     }
@@ -155,13 +171,20 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
     overlayRef.current.setProps({ layers });
   }, [hexes, places, activeMetric, opacity, showMarkers, selectedHex, onSelectHex]);
 
+  // Handle basemap style switch
+  useEffect(() => {
+    if (mapRef.current && basemapStyle) {
+      mapRef.current.setStyle(basemapStyle);
+    }
+  }, [basemapStyle]);
+
   // Initialize MapLibre GL
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: "https://tiles.openfreemap.org/styles/liberty",
+      style: basemapStyle,
       center: defaultCenter,
       zoom: 12.8,
       canvasContextAttributes: { preserveDrawingBuffer: true }, // Required for PNG canvas export
@@ -190,13 +213,17 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
       updateDeckLayers();
     });
 
+    map.on("styledata", () => {
+      updateDeckLayers();
+    });
+
     return () => {
       overlay.finalize();
       map.remove();
       mapRef.current = null;
       overlayRef.current = null;
     };
-  }, [defaultCenter, updateDeckLayers]);
+  }, [defaultCenter, updateDeckLayers, basemapStyle]);
 
   // Update deck layers when state changes
   useEffect(() => {
@@ -204,65 +231,33 @@ export const GapMap = forwardRef<GapMapRef, GapMapProps>(function GapMap(
   }, [updateDeckLayers]);
 
   return (
-    <div className="relative w-full h-full min-h-[600px] overflow-hidden bg-gray-950">
-      <div
-        ref={mapContainerRef}
-        data-testid="maplibre-container"
-        className="w-full h-full absolute inset-0"
-      />
+    <div className="relative w-full h-full min-h-[500px]">
+      <div ref={mapContainerRef} className="w-full h-full" />
 
-      {/* Hover Tooltip */}
+      {/* Floating Hover Tooltip */}
       {hoverInfo && hoverInfo.object && (
         <div
-          data-testid="hex-tooltip"
-          className="absolute z-40 pointer-events-none p-3 rounded-xl bg-gray-950/95 border border-gray-800 shadow-2xl text-xs text-white max-w-xs backdrop-blur-sm -translate-x-1/2 -translate-y-full mb-3"
-          style={{
-            left: `${hoverInfo.x}px`,
-            top: `${hoverInfo.y}px`,
-          }}
+          className="absolute z-30 pointer-events-none transform -translate-x-1/2 -translate-y-full mb-3"
+          style={{ left: hoverInfo.x, top: hoverInfo.y }}
         >
-          <div className="flex items-center justify-between gap-3 mb-1.5 pb-1 border-b border-gray-800">
-            <span className="font-mono text-[10px] text-gray-400">
-              {hoverInfo.object.h3_index.slice(0, 10)}...
-            </span>
-            <span className="font-bold text-emerald-400">
-              Score: {Math.round(hoverInfo.object.opportunity_score ?? 0)}/100
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-gray-300">
-            <div>
-              <span className="text-gray-500">Supply:</span>{" "}
-              <strong>{hoverInfo.object.supply_count}</strong>
+          <div className="bg-slate-950/95 backdrop-blur-md border border-slate-700/80 rounded-xl px-3 py-2 text-xs shadow-2xl text-white font-mono space-y-1">
+            <div className="flex items-center justify-between gap-3 text-[11px] text-slate-400">
+              <span>H3 Hex</span>
+              <span className="text-slate-200">{hoverInfo.object.h3_index.slice(0, 10)}...</span>
             </div>
-            <div>
-              <span className="text-gray-500">Density:</span>{" "}
-              <strong>
-                {hoverInfo.object.density_per_km2
-                  ? hoverInfo.object.density_per_km2.toFixed(1)
-                  : "0"}
-                /km²
-              </strong>
+            <div className="flex items-center justify-between gap-4 font-bold">
+              <span>Opportunity Score</span>
+              <span className="text-emerald-400 tabular-nums">
+                {Math.round(hoverInfo.object.opportunity_score ?? 0)}/100
+              </span>
             </div>
-            <div>
-              <span className="text-gray-500">Avg Rating:</span>{" "}
-              <strong>
-                {hoverInfo.object.avg_rating ? `${hoverInfo.object.avg_rating.toFixed(1)}★` : "N/A"}
-              </strong>
-            </div>
-            <div>
-              <span className="text-gray-500">Demand:</span>{" "}
-              <strong>
-                {hoverInfo.object.demand_proxy ? Math.round(hoverInfo.object.demand_proxy) : "0"}
-              </strong>
+            <div className="flex items-center justify-between gap-4 text-[11px] text-slate-300">
+              <span>Competitors</span>
+              <span className="text-slate-100 tabular-nums">
+                {hoverInfo.object.supply_count} businesses
+              </span>
             </div>
           </div>
-
-          {hoverInfo.object.explanation?.top_reasons?.[0] && (
-            <p className="mt-2 text-[10px] text-indigo-300 italic border-t border-gray-800/80 pt-1">
-              &quot;{hoverInfo.object.explanation.top_reasons[0]}&quot;
-            </p>
-          )}
         </div>
       )}
     </div>

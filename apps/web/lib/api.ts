@@ -83,13 +83,19 @@ class ApiClient {
     return response.json() as Promise<T>;
   }
 
+  async getHealth(): Promise<{ status: string; db?: string; redis?: string }> {
+    const res = await fetch(`${API_BASE_URL}/health`);
+    if (!res.ok) throw new Error("Health check failed");
+    return res.json();
+  }
+
   // --- Auth Endpoints ---
 
   async register(payload: {
     email: string;
     password: string;
     full_name?: string;
-    workspace_name: string;
+    workspace_name?: string;
   }): Promise<TokenResponse> {
     const data = await this.request<TokenResponse>("/api/v1/auth/register", {
       method: "POST",

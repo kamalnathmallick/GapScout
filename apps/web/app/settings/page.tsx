@@ -6,10 +6,8 @@ import {
   Settings as SettingsIcon,
   Download,
   Trash2,
-  Building,
   User,
   Shield,
-  Loader2,
   CheckCircle2,
   AlertTriangle,
   RotateCcw,
@@ -17,7 +15,6 @@ import {
   Sliders,
   DollarSign,
   Save,
-  KeyRound,
   FileSpreadsheet,
 } from "lucide-react";
 import { api } from "@/lib/api";
@@ -29,7 +26,6 @@ export default function SettingsPage() {
     "offer",
   );
 
-  const [loading, setLoading] = useState(true);
   const [user, setUser] = useState<UserOut | null>(null);
   const [offer, setOffer] = useState<OfferProfileOut | null>(null);
   const [weights, setWeights] = useState<Record<string, number>>({
@@ -39,7 +35,6 @@ export default function SettingsPage() {
     reachability: 20,
     evidence: 15,
   });
-  const [isCustomWeights, setIsCustomWeights] = useState(false);
   const [caps, setCaps] = useState<WorkspaceCapsOut>({
     max_cells_per_job: 250,
     max_places_per_job: 5000,
@@ -81,7 +76,6 @@ export default function SettingsPage() {
           if (offerData) setOffer(offerData);
           if (weightsData) {
             setWeights(weightsData.weights);
-            setIsCustomWeights(weightsData.is_custom);
           }
           if (capsData) setCaps(capsData);
           if (usageData) setUsage(usageData);
@@ -89,10 +83,6 @@ export default function SettingsPage() {
       } catch (err: unknown) {
         if (!ignore) {
           setErrorMessage(err instanceof Error ? err.message : "Failed to load settings data");
-        }
-      } finally {
-        if (!ignore) {
-          setLoading(false);
         }
       }
     }
@@ -103,20 +93,22 @@ export default function SettingsPage() {
   }, []);
 
   // Handlers
-  const handleSaveOffer = async () => {
+  const handleSaveOffer = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!offer) return;
     setSaving(true);
+    setErrorMessage(null);
     try {
       const updated = await api.updateOfferProfile({
         name: offer.name,
-        offer_description: offer.offer_description || undefined,
         target_categories: offer.target_categories,
-        min_rating: offer.min_rating,
-        max_rating: offer.max_rating,
+        offer_description: offer.offer_description ?? undefined,
+        min_rating: offer.min_rating ?? undefined,
+        max_rating: offer.max_rating ?? undefined,
         target_regions: offer.target_regions,
       });
       setOffer(updated);
-      showSuccess("Offer Profile saved and lead scores recomputed.");
+      showSuccess("Offer Profile updated successfully.");
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to save offer profile");
     } finally {
@@ -126,13 +118,13 @@ export default function SettingsPage() {
 
   const handleSaveWeights = async () => {
     setSaving(true);
+    setErrorMessage(null);
     try {
-      const res = await api.updateScoringWeights(weights);
-      setWeights(res.weights);
-      setIsCustomWeights(res.is_custom);
-      showSuccess("Lead scoring weights updated successfully.");
+      const updated = await api.updateScoringWeights(weights);
+      setWeights(updated.weights);
+      showSuccess("Custom scoring weights applied successfully.");
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to save scoring weights");
+      setErrorMessage(err instanceof Error ? err.message : "Failed to save weights");
     } finally {
       setSaving(false);
     }
@@ -140,11 +132,11 @@ export default function SettingsPage() {
 
   const handleResetWeights = async () => {
     setSaving(true);
+    setErrorMessage(null);
     try {
-      const res = await api.resetScoringWeights();
-      setWeights(res.weights);
-      setIsCustomWeights(false);
-      showSuccess("Scoring weights reset to factory defaults (25/25/15/20/15).");
+      const reset = await api.resetScoringWeights();
+      setWeights(reset.weights);
+      showSuccess("Scoring weights reset to global defaults.");
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Failed to reset weights");
     } finally {
@@ -152,14 +144,16 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveCaps = async () => {
+  const handleSaveCaps = async (e: React.FormEvent) => {
+    e.preventDefault();
     setSaving(true);
+    setErrorMessage(null);
     try {
-      const res = await api.updateWorkspaceCaps(caps);
-      setCaps(res);
-      showSuccess("Workspace limits and retention policy saved.");
+      const updated = await api.updateWorkspaceCaps(caps);
+      setCaps(updated);
+      showSuccess("Workspace execution caps saved.");
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "Failed to update workspace limits");
+      setErrorMessage(err instanceof Error ? err.message : "Failed to save caps");
     } finally {
       setSaving(false);
     }
@@ -167,30 +161,22 @@ export default function SettingsPage() {
 
   const handleExport = async (format: "json" | "csv") => {
     setIsExporting(format);
+    setErrorMessage(null);
     try {
-      if (format === "csv") {
-        const blob = (await api.exportAccountData("csv")) as Blob;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `gapscout-export-${user?.workspace?.name || "data"}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else {
-        const data = await api.exportAccountData("json");
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `gapscout-export-${user?.workspace?.name || "data"}.json`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      }
-      showSuccess(`Exported workspace data as ${format.toUpperCase()}`);
+      const res = await api.exportAccountData(format);
+      const blob =
+        res instanceof Blob
+          ? res
+          : new Blob([JSON.stringify(res, null, 2)], { type: "application/json" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `gapscout-account-export-${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      showSuccess(`Account data exported as ${format.toUpperCase()}.`);
     } catch (err: unknown) {
       setErrorMessage(err instanceof Error ? err.message : "Export failed");
     } finally {
@@ -198,738 +184,517 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteData = async () => {
-    if (confirmDeleteText !== "DELETE MY DATA") {
-      setErrorMessage("Please type 'DELETE MY DATA' exactly to confirm permanent deletion.");
-      return;
-    }
-    if (
-      !window.confirm(
-        "Irreversible action! This will immediately delete all search jobs, places, leads, and outreach events.",
-      )
-    ) {
+  const handleDeleteAccount = async () => {
+    if (confirmDeleteText !== "DELETE") {
+      setErrorMessage("Please type 'DELETE' exactly to confirm deletion.");
       return;
     }
     setIsDeleting(true);
+    setErrorMessage(null);
     try {
-      await api.deleteAccountData("DELETE MY DATA");
+      await api.deleteAccountData();
       api.clearAuth();
       router.push("/login");
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "Deletion failed");
+      setErrorMessage(err instanceof Error ? err.message : "Account deletion failed");
       setIsDeleting(false);
     }
   };
 
-  const handleRequestVerification = async () => {
+  const handleVerifyEmail = async () => {
+    setSaving(true);
     try {
-      const res = await api.requestEmailVerification(user?.email);
+      const res = await api.requestEmailVerification();
+      if (res.dev_link) {
+        setDevLink(res.dev_link);
+      }
       showSuccess(res.message);
-      if (res.dev_link) setDevLink(res.dev_link);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "Verification request failed");
+      setErrorMessage(err instanceof Error ? err.message : "Email verification failed");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleForgotPassword = async () => {
+  const handlePasswordReset = async () => {
     if (!user?.email) return;
+    setSaving(true);
     try {
       const res = await api.forgotPassword(user.email);
+      if (res.dev_link) {
+        setDevLink(res.dev_link);
+      }
       showSuccess(res.message);
-      if (res.dev_link) setDevLink(res.dev_link);
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : "Password reset request failed");
+      setErrorMessage(err instanceof Error ? err.message : "Password reset failed");
+    } finally {
+      setSaving(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white p-6 sm:p-10 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
-      </div>
-    );
-  }
-
-  const totalWeight = Object.values(weights).reduce((a, b) => a + Number(b || 0), 0);
+  const totalWeight = Object.values(weights).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white p-6 sm:p-10">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
-            <SettingsIcon className="w-7 h-7 text-indigo-400" />
-            <span>Workspace & Account Settings</span>
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Manage your offer profile, lead scoring formula, resource limits, API usage, and
-            compliance data.
-          </p>
+    <div className="flex-1 p-6 sm:p-8 max-w-6xl mx-auto w-full space-y-6">
+      {/* Header */}
+      <div className="pb-6 border-b border-slate-800/80">
+        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+          <SettingsIcon className="w-6 h-6 text-indigo-400" />
+          <span>Workspace &amp; Account Settings</span>
+        </h1>
+        <p className="text-xs text-slate-400 mt-1">
+          Configure offer target criteria, lead scoring weights, execution safety caps, API budget,
+          and privacy data exports.
+        </p>
+      </div>
+
+      {/* Notifications */}
+      {successMessage && (
+        <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+          <span>{successMessage}</span>
         </div>
+      )}
 
-        {/* Alerts */}
-        {successMessage && (
-          <div className="p-4 rounded-xl bg-emerald-950/40 border border-emerald-800 text-emerald-300 text-xs flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>{successMessage}</span>
-          </div>
-        )}
-        {errorMessage && (
-          <div className="p-4 rounded-xl bg-red-950/40 border border-red-800 text-red-300 text-xs flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-        {devLink && (
-          <div className="p-4 rounded-xl bg-indigo-950/50 border border-indigo-800 text-indigo-200 text-xs space-y-1 font-mono">
-            <span className="font-semibold text-indigo-300 block">Dev Link (Simulated Email):</span>
-            <a
-              href={devLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline break-all"
-            >
-              {devLink}
-            </a>
-          </div>
-        )}
-
-        {/* Tab Navigation */}
-        <div className="flex border-b border-gray-800 space-x-6 text-sm font-semibold overflow-x-auto">
-          <button
-            onClick={() => setActiveTab("offer")}
-            className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === "offer"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>Offer Profile</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("weights")}
-            className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === "weights"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>Scoring Weights</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("caps")}
-            className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === "caps"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            <span>Workspace Caps & Retention</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("usage")}
-            className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === "usage"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            <span>API & LLM Usage</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("account")}
-            className={`pb-3 flex items-center gap-2 border-b-2 whitespace-nowrap transition-colors ${
-              activeTab === "account"
-                ? "border-indigo-500 text-indigo-400"
-                : "border-transparent text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            <Building className="w-4 h-4" />
-            <span>Account & Data Tools</span>
-          </button>
+      {errorMessage && (
+        <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+          <span>{errorMessage}</span>
         </div>
+      )}
 
-        {/* TAB 1: OFFER PROFILE */}
-        {activeTab === "offer" && (
-          <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-white">
-                Offer Profile & Pitch Positioning
-              </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Define what service or product your agency sells. The lead scorer uses this to
-                prioritize high-fit leads and personalize cold drafts.
-              </p>
-            </div>
+      {devLink && (
+        <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs flex items-center justify-between gap-2 font-mono">
+          <span className="truncate">DEV LINK: {devLink}</span>
+          <a
+            href={devLink}
+            target="_blank"
+            rel="noreferrer"
+            className="text-white bg-indigo-600 px-2 py-1 rounded text-[11px] font-semibold whitespace-nowrap hover:bg-indigo-500"
+          >
+            Open Link
+          </a>
+        </div>
+      )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-xs font-medium text-gray-300">Offer Title</label>
-                <input
-                  type="text"
-                  value={offer?.name || ""}
-                  onChange={(e) =>
-                    setOffer((prev) => (prev ? { ...prev, name: e.target.value } : null))
-                  }
-                  placeholder="e.g. Local SEO & Google Review Acceleration"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="space-y-1.5 md:col-span-2">
-                <label className="text-xs font-medium text-gray-300">
-                  Description & Value Proposition
-                </label>
-                <textarea
-                  value={offer?.offer_description || ""}
-                  onChange={(e) =>
-                    setOffer((prev) =>
-                      prev ? { ...prev, offer_description: e.target.value } : null,
-                    )
-                  }
-                  placeholder="Describe your offer, guarantee, or case studies..."
-                  rows={3}
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Target Categories (comma separated)
-                </label>
-                <input
-                  type="text"
-                  value={offer?.target_categories?.join(", ") || ""}
-                  onChange={(e) =>
-                    setOffer((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            target_categories: e.target.value
-                              .split(",")
-                              .map((s) => s.trim())
-                              .filter(Boolean),
-                          }
-                        : null,
-                    )
-                  }
-                  placeholder="restaurant, dental, salon"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Target Regions / Cities (comma separated)
-                </label>
-                <input
-                  type="text"
-                  value={offer?.target_regions?.join(", ") || ""}
-                  onChange={(e) =>
-                    setOffer((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            target_regions: e.target.value
-                              .split(",")
-                              .map((s) => s.trim())
-                              .filter(Boolean),
-                          }
-                        : null,
-                    )
-                  }
-                  placeholder="Bengaluru, Mumbai, Delhi"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Minimum Rating Target (e.g. 3.0)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="5"
-                  value={offer?.min_rating ?? ""}
-                  onChange={(e) =>
-                    setOffer((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            min_rating: e.target.value ? parseFloat(e.target.value) : null,
-                          }
-                        : null,
-                    )
-                  }
-                  placeholder="3.0"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Maximum Rating Target (e.g. 4.5)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="5"
-                  value={offer?.max_rating ?? ""}
-                  onChange={(e) =>
-                    setOffer((prev) =>
-                      prev
-                        ? {
-                            ...prev,
-                            max_rating: e.target.value ? parseFloat(e.target.value) : null,
-                          }
-                        : null,
-                    )
-                  }
-                  placeholder="4.5"
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-gray-800 flex justify-end">
+      {/* 2-Column Vertical Tabs Layout */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Navigation Sidebar */}
+        <div className="md:col-span-1 space-y-1">
+          {[
+            { id: "offer", label: "Offer Profile", icon: Sparkles },
+            { id: "weights", label: "Scoring Weights", icon: Sliders },
+            { id: "caps", label: "Workspace Caps", icon: Shield },
+            { id: "usage", label: "API Usage", icon: DollarSign },
+            { id: "account", label: "Account & Privacy", icon: User },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const isSelected = activeTab === tab.id;
+            return (
               <button
-                onClick={handleSaveOffer}
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs rounded-lg flex items-center gap-2 transition-colors"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-left transition-colors ${
+                  isSelected
+                    ? "bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+                }`}
               >
-                <Save className="w-4 h-4" />
-                <span>{saving ? "Saving..." : "Save Offer Profile"}</span>
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span>{tab.label}</span>
               </button>
-            </div>
-          </div>
-        )}
+            );
+          })}
+        </div>
 
-        {/* TAB 2: SCORING WEIGHTS */}
-        {activeTab === "weights" && (
-          <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-6">
-            <div className="flex items-center justify-between">
+        {/* Content Panel (Right 3 cols) */}
+        <div className="md:col-span-3">
+          {/* Tab 1: Offer Profile */}
+          {activeTab === "offer" && (
+            <div className="glass-panel rounded-2xl p-6 border border-slate-800/80 space-y-6">
               <div>
-                <h2 className="text-base font-semibold text-white">Lead Scoring Formula Editor</h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Tune the weight of each component in the 0-100 cold-start lead scorer. Factory
-                  default: 25 / 25 / 15 / 20 / 15.
+                <h2 className="text-base font-bold text-white">Offer Profile</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Define what service you provide and which businesses are ideal commercial fits.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-xs font-mono font-semibold px-2.5 py-1 rounded-md ${
-                    totalWeight === 100
-                      ? "bg-emerald-950 border border-emerald-800 text-emerald-300"
-                      : "bg-amber-950 border border-amber-800 text-amber-300"
-                  }`}
-                >
-                  Total: {totalWeight}%
-                </span>
-                {isCustomWeights && (
-                  <span className="text-[11px] font-semibold text-indigo-400 bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800">
-                    Custom Weights Active
-                  </span>
-                )}
-              </div>
-            </div>
 
-            <div className="space-y-4">
-              {Object.entries(weights).map(([key, val]) => (
-                <div
-                  key={key}
-                  className="space-y-1.5 p-3 rounded-lg bg-gray-950 border border-gray-800"
-                >
-                  <div className="flex items-center justify-between text-xs font-semibold">
-                    <span className="capitalize text-gray-200">{key} Component</span>
-                    <span className="font-mono text-indigo-400">{val}%</span>
-                  </div>
+              <form onSubmit={handleSaveOffer} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+                    Profile Name
+                  </label>
                   <input
-                    type="range"
-                    min="0"
-                    max="50"
-                    step="1"
-                    value={val}
+                    type="text"
+                    required
+                    value={offer?.name || ""}
                     onChange={(e) =>
-                      setWeights((prev) => ({
-                        ...prev,
-                        [key]: parseInt(e.target.value, 10),
-                      }))
+                      setOffer((prev) => (prev ? { ...prev, name: e.target.value } : null))
                     }
-                    className="w-full accent-indigo-500 h-1.5 bg-gray-800 rounded-lg cursor-pointer"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500"
                   />
-                  <p className="text-[11px] text-gray-500">
-                    {key === "pain" &&
-                      "Evaluates missing website, non-HTTPS, low rating, and unanswered complaints."}
-                    {key === "fit" &&
-                      "Evaluates category match, rating boundary, and region targeting."}
-                    {key === "timing" &&
-                      "Evaluates recent negative reviews, new businesses, and high-gap hex opportunity."}
-                    {key === "reachability" &&
-                      "Evaluates named decision-maker email, generic email, and verified phone."}
-                    {key === "evidence" &&
-                      "Evaluates review volume, complete business hours, and engagement depth."}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+                    Offer Value Proposition
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={offer?.offer_description || ""}
+                    onChange={(e) =>
+                      setOffer((prev) =>
+                        prev ? { ...prev, offer_description: e.target.value } : null,
+                      )
+                    }
+                    placeholder="e.g. Turn slow weekday mornings into loyal subscription revenue with hyper-local SEO and geo-targeted ads."
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+                    Target Categories (comma separated)
+                  </label>
+                  <input
+                    type="text"
+                    value={offer?.target_categories?.join(", ") || ""}
+                    onChange={(e) =>
+                      setOffer((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              target_categories: e.target.value
+                                .split(",")
+                                .map((s) => s.trim())
+                                .filter(Boolean),
+                            }
+                          : null,
+                      )
+                    }
+                    placeholder="cafe, restaurant, gym"
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Offer Profile</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Tab 2: Scoring Weights */}
+          {activeTab === "weights" && (
+            <div className="glass-panel rounded-2xl p-6 border border-slate-800/80 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-base font-bold text-white">Lead Scoring Formula Editor</h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Calibrate the 5 deterministic scoring pillars to align with your agency’s sales
+                    strategy.
                   </p>
                 </div>
-              ))}
-            </div>
-
-            <div className="pt-3 border-t border-gray-800 flex items-center justify-between">
-              <button
-                onClick={handleResetWeights}
-                disabled={saving}
-                className="px-3.5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium text-xs rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset to Defaults</span>
-              </button>
-              <button
-                onClick={handleSaveWeights}
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Save className="w-4 h-4" />
-                <span>{saving ? "Saving..." : "Save Custom Weights"}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: WORKSPACE CAPS & RETENTION */}
-        {activeTab === "caps" && (
-          <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-6">
-            <div>
-              <h2 className="text-base font-semibold text-white">
-                Execution Caps & Data Retention
-              </h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Set strict guardrails on map scraping bounds, daily LLM expenses, and automated raw
-                data cleanup.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Max H3 Grid Cells per Job
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={caps.max_cells_per_job}
-                  onChange={(e) =>
-                    setCaps((prev) => ({
-                      ...prev,
-                      max_cells_per_job: parseInt(e.target.value, 10) || 1,
-                    }))
-                  }
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-                <span className="text-[11px] text-gray-500 block">
-                  Default: 250 cells (prevents runaway grid expansion)
-                </span>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Max Scraped Places per Job
-                </label>
-                <input
-                  type="number"
-                  min="10"
-                  max="50000"
-                  value={caps.max_places_per_job}
-                  onChange={(e) =>
-                    setCaps((prev) => ({
-                      ...prev,
-                      max_places_per_job: parseInt(e.target.value, 10) || 10,
-                    }))
-                  }
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-                <span className="text-[11px] text-gray-500 block">
-                  Default: 5,000 places per scraping job
-                </span>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Daily LLM Cost Cap ($ USD)
-                </label>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="100"
-                  value={caps.daily_llm_cost_cap_usd}
-                  onChange={(e) =>
-                    setCaps((prev) => ({
-                      ...prev,
-                      daily_llm_cost_cap_usd: parseFloat(e.target.value) || 0.5,
-                    }))
-                  }
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-                <span className="text-[11px] text-gray-500 block">
-                  Default: $2.00 / day (protects against cost overrun)
-                </span>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-gray-300">
-                  Raw Scraped Data Retention (Days)
-                </label>
-                <input
-                  type="number"
-                  min="7"
-                  max="365"
-                  value={caps.data_retention_days}
-                  onChange={(e) =>
-                    setCaps((prev) => ({
-                      ...prev,
-                      data_retention_days: parseInt(e.target.value, 10) || 30,
-                    }))
-                  }
-                  className="w-full bg-gray-950 border border-gray-800 rounded-lg p-2.5 text-xs text-white focus:ring-1 focus:ring-indigo-500"
-                />
-                <span className="text-[11px] text-gray-500 block">
-                  Default: 90 days (auto-pruned by Celery beat cleanup)
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-gray-800 flex justify-end">
-              <button
-                onClick={handleSaveCaps}
-                disabled={saving}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 font-semibold text-xs rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Save className="w-4 h-4" />
-                <span>{saving ? "Saving..." : "Save Limits & Retention Policy"}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: API USAGE */}
-        {activeTab === "usage" && (
-          <div className="space-y-6">
-            <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-4">
-              <div>
-                <h2 className="text-base font-semibold text-white">
-                  Anthropic API & LLM Cost Tracking
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Real-time token usage and cost accounting for website audits and review theme
-                  synthesis.
-                </p>
-              </div>
-
-              {usage ? (
-                <div className="space-y-6 pt-2">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-4 rounded-xl bg-gray-950 border border-gray-800">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                        Cost Today
-                      </span>
-                      <div className="text-2xl font-bold font-mono text-white mt-1">
-                        ${usage.cost_today_usd.toFixed(4)}
-                      </div>
-                      <span className="text-[11px] text-gray-500">
-                        Cap: ${usage.daily_cost_cap_usd.toFixed(2)}
-                      </span>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-gray-950 border border-gray-800">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                        Remaining Budget
-                      </span>
-                      <div className="text-2xl font-bold font-mono text-emerald-400 mt-1">
-                        ${usage.remaining_budget_today_usd.toFixed(4)}
-                      </div>
-                      <span className="text-[11px] text-emerald-500">Active today</span>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-gray-950 border border-gray-800">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                        Total Tokens
-                      </span>
-                      <div className="text-2xl font-bold font-mono text-white mt-1">
-                        {((usage.prompt_tokens + usage.completion_tokens) / 1000).toFixed(1)}k
-                      </div>
-                      <span className="text-[11px] text-gray-500">
-                        Prompt: {usage.prompt_tokens}
-                      </span>
-                    </div>
-
-                    <div className="p-4 rounded-xl bg-gray-950 border border-gray-800">
-                      <span className="text-[11px] font-semibold text-gray-400 uppercase">
-                        Total Cost (All-Time)
-                      </span>
-                      <div className="text-2xl font-bold font-mono text-indigo-400 mt-1">
-                        ${usage.total_cost_usd.toFixed(4)}
-                      </div>
-                      <span className="text-[11px] text-gray-500">
-                        {usage.total_calls} LLM calls
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Budget Progress Bar */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400">Daily Cap Utilization:</span>
-                      <span className="font-mono text-white font-semibold">
-                        {((usage.cost_today_usd / usage.daily_cost_cap_usd) * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2.5 bg-gray-950 rounded-full overflow-hidden border border-gray-800">
-                      <div
-                        className="h-full bg-gradient-to-r from-indigo-500 to-emerald-500 rounded-full"
-                        style={{
-                          width: `${Math.min(100, (usage.cost_today_usd / usage.daily_cost_cap_usd) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-8 text-center text-xs text-gray-500">
-                  No LLM calls logged yet.
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: ACCOUNT & DATA TOOLS */}
-        {activeTab === "account" && (
-          <div className="space-y-6">
-            {/* User Profile & Security */}
-            <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-4">
-              <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                <User className="w-4 h-4 text-indigo-400" />
-                <span>Account & Credentials</span>
-              </h2>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                <div>
-                  <span className="text-gray-400">Email Address</span>
-                  <p className="font-medium text-white mt-0.5">{user?.email}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400">Workspace Tenant ID</span>
-                  <p className="font-mono text-gray-300 mt-0.5">{user?.workspace?.id}</p>
-                </div>
-                <div>
-                  <span className="text-gray-400">Email Verification Status</span>
-                  <div className="mt-1 flex items-center gap-2">
-                    {user?.is_verified ? (
-                      <span className="flex items-center gap-1 text-emerald-400 font-semibold">
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Verified</span>
-                      </span>
-                    ) : (
-                      <button
-                        onClick={handleRequestVerification}
-                        className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-800 text-amber-300 rounded text-[11px] font-medium transition-colors"
-                      >
-                        Request Verification Link (Stub)
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-400">Password Reset</span>
-                  <div className="mt-1">
-                    <button
-                      onClick={handleForgotPassword}
-                      className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-white rounded text-[11px] font-medium transition-colors flex items-center gap-1.5"
-                    >
-                      <KeyRound className="w-3.5 h-3.5" />
-                      <span>Request Password Reset Link</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Data Export (JSON & CSV) */}
-            <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 space-y-4">
-              <div>
-                <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                  <Download className="w-4 h-4 text-indigo-400" />
-                  <span>Data Export (DPDP / GDPR Compliance)</span>
-                </h2>
-                <p className="text-xs text-gray-400 mt-0.5">
-                  Download all public business records, enriched leads, and outreach events owned by
-                  your workspace.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
                 <button
-                  onClick={() => handleExport("json")}
-                  disabled={isExporting !== null}
-                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold text-white flex items-center gap-2 transition-colors"
+                  onClick={handleResetWeights}
+                  disabled={saving}
+                  className="px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors self-start sm:self-auto"
                 >
-                  <Download className="w-4 h-4" />
-                  <span>{isExporting === "json" ? "Exporting..." : "Export as JSON"}</span>
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset to Defaults</span>
                 </button>
+              </div>
+
+              {/* Live Sum Indicator */}
+              <div
+                className={`p-3 rounded-xl border flex items-center justify-between text-xs font-mono ${
+                  totalWeight === 100
+                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
+                    : "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                }`}
+              >
+                <span>Total Formula Weight:</span>
+                <span className="font-bold tabular-nums">{totalWeight} / 100 pts</span>
+              </div>
+
+              <div className="space-y-4">
+                {Object.entries(weights).map(([key, val]) => (
+                  <div key={key} className="space-y-1.5">
+                    <div className="flex justify-between text-xs">
+                      <span className="capitalize font-semibold text-slate-200">{key}</span>
+                      <span className="font-mono text-indigo-400 font-bold tabular-nums">
+                        {val} pts
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="50"
+                      step="5"
+                      value={val}
+                      onChange={(e) =>
+                        setWeights((prev) => ({ ...prev, [key]: Number(e.target.value) }))
+                      }
+                      className="w-full accent-indigo-500 cursor-pointer"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="pt-2">
                 <button
-                  onClick={() => handleExport("csv")}
-                  disabled={isExporting !== null}
-                  className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold text-white flex items-center gap-2 transition-colors"
+                  onClick={handleSaveWeights}
+                  disabled={saving || totalWeight !== 100}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                  <span>{isExporting === "csv" ? "Exporting..." : "Export as CSV"}</span>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Scoring Formula</span>
                 </button>
               </div>
             </div>
+          )}
 
-            {/* Right to be Forgotten Deletion */}
-            <div className="rounded-xl bg-red-950/20 border border-red-900/50 p-6 space-y-4">
+          {/* Tab 3: Workspace Caps */}
+          {activeTab === "caps" && (
+            <div className="glass-panel rounded-2xl p-6 border border-slate-800/80 space-y-6">
               <div>
-                <h2 className="text-base font-semibold text-red-300 flex items-center gap-2">
-                  <Trash2 className="w-4 h-4 text-red-400" />
-                  <span>Irreversible Workspace Deletion (Right to be Forgotten)</span>
+                <h2 className="text-base font-bold text-white">
+                  Execution Caps &amp; Data Retention
                 </h2>
-                <p className="text-xs text-red-200/70 mt-0.5">
-                  Permanently erase all places, leads, ML snapshots, and search jobs. This action
-                  cannot be undone.
+                <p className="text-xs text-slate-400 mt-1">
+                  Enforce strict execution boundaries to prevent runaway scraping costs or memory
+                  bloat.
                 </p>
               </div>
 
-              <div className="space-y-3 max-w-md">
-                <label className="text-xs text-red-200/80 block">
-                  To confirm, type <strong className="text-white font-mono">DELETE MY DATA</strong>{" "}
-                  below:
-                </label>
-                <input
-                  type="text"
-                  value={confirmDeleteText}
-                  onChange={(e) => setConfirmDeleteText(e.target.value)}
-                  placeholder="DELETE MY DATA"
-                  className="w-full bg-gray-950 border border-red-900/60 rounded-lg p-2.5 text-xs text-white placeholder-gray-600 focus:ring-1 focus:ring-red-500"
-                />
-                <button
-                  onClick={handleDeleteData}
-                  disabled={confirmDeleteText !== "DELETE MY DATA" || isDeleting}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:hover:bg-red-600 text-white font-semibold text-xs rounded-lg transition-colors"
-                >
-                  {isDeleting ? "Deleting..." : "Permanently Delete All Workspace Data"}
-                </button>
+              <form onSubmit={handleSaveCaps} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+                      Max Places Per Job
+                    </label>
+                    <input
+                      type="number"
+                      value={caps.max_places_per_job}
+                      onChange={(e) =>
+                        setCaps((prev) => ({ ...prev, max_places_per_job: Number(e.target.value) }))
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono tabular-nums focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+                      Max Cells Per Job
+                    </label>
+                    <input
+                      type="number"
+                      value={caps.max_cells_per_job}
+                      onChange={(e) =>
+                        setCaps((prev) => ({ ...prev, max_cells_per_job: Number(e.target.value) }))
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono tabular-nums focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+                      Daily LLM Cost Cap ($ USD)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={caps.daily_llm_cost_cap_usd}
+                      onChange={(e) =>
+                        setCaps((prev) => ({
+                          ...prev,
+                          daily_llm_cost_cap_usd: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono tabular-nums focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5 font-mono">
+                      Raw Data Retention (Days)
+                    </label>
+                    <input
+                      type="number"
+                      value={caps.data_retention_days}
+                      onChange={(e) =>
+                        setCaps((prev) => ({
+                          ...prev,
+                          data_retention_days: Number(e.target.value),
+                        }))
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono tabular-nums focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white text-xs font-semibold flex items-center gap-2 transition-colors shadow-sm"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Execution Caps</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Tab 4: API Usage */}
+          {activeTab === "usage" && (
+            <div className="glass-panel rounded-2xl p-6 border border-slate-800/80 space-y-6">
+              <div>
+                <h2 className="text-base font-bold text-white">API Usage &amp; Cost Metering</h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  Track real-time token consumption, LLM calls, and daily budget exhaustion.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-500 block mb-1 font-mono">
+                    TODAY COST
+                  </span>
+                  <span className="text-lg font-bold font-mono text-emerald-400 tabular-nums">
+                    ${usage?.cost_today_usd?.toFixed(2) ?? "0.00"}
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-500 block mb-1 font-mono">DAILY CAP</span>
+                  <span className="text-lg font-bold font-mono text-white tabular-nums">
+                    ${usage?.daily_cost_cap_usd?.toFixed(2) ?? "2.00"}
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-500 block mb-1 font-mono">REMAINING</span>
+                  <span className="text-lg font-bold font-mono text-indigo-400 tabular-nums">
+                    ${usage?.remaining_budget_today_usd?.toFixed(2) ?? "2.00"}
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/80 p-3.5 rounded-xl border border-slate-800">
+                  <span className="text-[11px] text-slate-500 block mb-1 font-mono">
+                    TOTAL CALLS
+                  </span>
+                  <span className="text-lg font-bold font-mono text-white tabular-nums">
+                    {usage?.total_calls ?? 0}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Tab 5: Account & Privacy */}
+          {activeTab === "account" && (
+            <div className="space-y-6">
+              {/* Account Details */}
+              <div className="glass-panel rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                <h2 className="text-base font-bold text-white">Account Information</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                  <div>
+                    <span className="text-slate-500 block text-[11px] font-mono">USER EMAIL</span>
+                    <span className="font-mono text-slate-200">{user?.email || "--"}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-500 block text-[11px] font-mono">
+                      WORKSPACE ROLE
+                    </span>
+                    <span className="font-mono text-indigo-400 font-bold uppercase">
+                      {user?.role || "Owner"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-2">
+                  <button
+                    onClick={handleVerifyEmail}
+                    disabled={saving || user?.is_verified}
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 transition-colors disabled:opacity-50"
+                  >
+                    {user?.is_verified ? "Email Verified ✓" : "Verify Email"}
+                  </button>
+                  <button
+                    onClick={handlePasswordReset}
+                    disabled={saving}
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 transition-colors"
+                  >
+                    Reset Password
+                  </button>
+                </div>
+              </div>
+
+              {/* Privacy & Data Export */}
+              <div className="glass-panel rounded-2xl p-6 border border-slate-800/80 space-y-4">
+                <h2 className="text-base font-bold text-white">Data Export &amp; Portability</h2>
+                <p className="text-xs text-slate-400">
+                  Export all your search jobs, H3 hex calculations, and leads in standard formats.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleExport("json")}
+                    disabled={isExporting !== null}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export JSON</span>
+                  </button>
+                  <button
+                    onClick={() => handleExport("csv")}
+                    disabled={isExporting !== null}
+                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Danger Zone */}
+              <div className="glass-panel rounded-2xl p-6 border border-rose-500/30 bg-rose-950/10 space-y-4">
+                <div className="flex items-center gap-2 text-rose-400">
+                  <Trash2 className="w-4 h-4" />
+                  <h2 className="text-base font-bold text-white">Danger Zone: Delete All Data</h2>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Irreversibly delete your account, workspace, search jobs, hex metrics, and
+                  outreach leads. This action cannot be undone.
+                </p>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <input
+                    type="text"
+                    value={confirmDeleteText}
+                    onChange={(e) => setConfirmDeleteText(e.target.value)}
+                    placeholder="Type DELETE to confirm"
+                    className="px-3 py-1.5 rounded-lg bg-slate-950 border border-rose-500/40 text-rose-200 text-xs font-mono focus:outline-none"
+                  />
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={isDeleting || confirmDeleteText !== "DELETE"}
+                    className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-40 text-white text-xs font-semibold transition-colors"
+                  >
+                    {isDeleting ? "Deleting..." : "Permanently Delete Account"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

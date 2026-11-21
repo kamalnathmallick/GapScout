@@ -15,13 +15,13 @@ export function GapSummaryCards({ summary, onSelectHex }: GapSummaryCardsProps) 
   return (
     <div
       data-testid="gap-summary-cards"
-      className="absolute top-4 left-4 z-20 flex flex-col gap-3 max-w-sm w-full pointer-events-none"
+      className="absolute top-16 left-4 z-20 flex flex-col gap-3 max-w-sm w-full pointer-events-none"
     >
       {/* Top 3 Opportunity Card */}
-      <div className="bg-gray-900/90 backdrop-blur-md border border-emerald-500/30 rounded-2xl p-4 shadow-xl pointer-events-auto transition-all">
+      <div className="glass-panel bg-slate-950/90 border border-emerald-500/30 rounded-2xl p-4 shadow-2xl pointer-events-auto transition-all">
         <div className="flex items-center justify-between mb-2.5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5 font-mono">
+            <Sparkles className="w-3.5 h-3.5" />
             Top 3 Places to Open a {summary.category}
           </h3>
         </div>
@@ -31,32 +31,32 @@ export function GapSummaryCards({ summary, onSelectHex }: GapSummaryCardsProps) 
             <button
               key={hex.h3_index || idx}
               onClick={() => onSelectHex(hex.h3_index)}
-              className="w-full text-left p-2 rounded-xl bg-gray-950/70 hover:bg-gray-800 border border-emerald-500/20 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
+              className="w-full text-left p-2 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-emerald-500/20 hover:border-emerald-500/40 transition-colors flex items-center justify-between group"
             >
               <div className="truncate pr-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold flex items-center justify-center">
+                  <span className="w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-mono font-bold flex items-center justify-center">
                     {idx + 1}
                   </span>
-                  <span className="text-xs font-semibold text-white">
+                  <span className="text-xs font-semibold text-white font-mono tabular-nums">
                     Score {Math.round(hex.opportunity_score)}/100
                   </span>
                 </div>
-                <p className="text-[11px] text-gray-400 truncate mt-0.5 pl-6">
+                <p className="text-[11px] text-slate-400 truncate mt-0.5 pl-6">
                   {hex.reasons?.[0] || "Prime unmet demand"}
                 </p>
               </div>
-              <ArrowUpRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-emerald-400 transition-colors flex-shrink-0" />
+              <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400 transition-colors flex-shrink-0" />
             </button>
           ))}
         </div>
       </div>
 
       {/* Most Saturated Card */}
-      <div className="bg-gray-900/90 backdrop-blur-md border border-red-500/20 rounded-2xl p-4 shadow-xl pointer-events-auto transition-all">
+      <div className="glass-panel bg-slate-950/90 border border-rose-500/30 rounded-2xl p-4 shadow-2xl pointer-events-auto transition-all">
         <div className="flex items-center justify-between mb-2.5">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-red-400 flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" />
+          <h3 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5 font-mono">
+            <AlertCircle className="w-3.5 h-3.5" />
             Most Saturated Areas
           </h3>
         </div>
@@ -66,22 +66,22 @@ export function GapSummaryCards({ summary, onSelectHex }: GapSummaryCardsProps) 
             <button
               key={hex.h3_index || idx}
               onClick={() => onSelectHex(hex.h3_index)}
-              className="w-full text-left p-2 rounded-xl bg-gray-950/70 hover:bg-gray-800 border border-red-500/20 hover:border-red-500/40 transition-colors flex items-center justify-between group"
+              className="w-full text-left p-2 rounded-xl bg-slate-900/80 hover:bg-slate-850 border border-rose-500/20 hover:border-rose-500/40 transition-colors flex items-center justify-between group"
             >
               <div className="truncate pr-2">
                 <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-red-500/20 text-red-400 text-[10px] font-bold flex items-center justify-center">
+                  <span className="w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 text-[10px] font-mono font-bold flex items-center justify-center">
                     {idx + 1}
                   </span>
-                  <span className="text-xs font-semibold text-white">
+                  <span className="text-xs font-semibold text-white font-mono tabular-nums">
                     Score {Math.round(hex.opportunity_score)}/100
                   </span>
                 </div>
-                <p className="text-[11px] text-gray-400 truncate mt-0.5 pl-6">
+                <p className="text-[11px] text-slate-400 truncate mt-0.5 pl-6">
                   {hex.reasons?.[0] || "High competitor density"}
                 </p>
               </div>
-              <ArrowUpRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-red-400 transition-colors flex-shrink-0" />
+              <ArrowUpRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-400 transition-colors flex-shrink-0" />
             </button>
           ))}
         </div>

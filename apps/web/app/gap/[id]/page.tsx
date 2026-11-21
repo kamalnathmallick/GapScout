@@ -4,7 +4,7 @@ import React, { useState, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Compass, ArrowLeft, Loader2, Layers, Sparkles, Info } from "lucide-react";
+import { ArrowLeft, Loader2, Layers, Sparkles } from "lucide-react";
 import { api } from "@/lib/api";
 import { HexMetricOut, HexMetricsResponse, GapSummaryOut, PlacesListOut } from "@/lib/types";
 import { MetricType } from "@/lib/color-scale";
@@ -23,6 +23,7 @@ export default function GapMapPage() {
   const [showMarkers, setShowMarkers] = useState(false);
   const [selectedHex, setSelectedHex] = useState<HexMetricOut | null>(null);
   const [isExportingPNG, setIsExportingPNG] = useState(false);
+  const [basemapStyle, setBasemapStyle] = useState("https://tiles.openfreemap.org/styles/dark");
 
   const isClient = typeof window !== "undefined";
 
@@ -34,10 +35,7 @@ export default function GapMapPage() {
     error: hexError,
   } = useQuery<HexMetricsResponse>({
     queryKey: ["gap-hexes", jobId],
-    queryFn: () => {
-      console.log("EXEC QUERY FN FOR GAP HEXES", jobId);
-      return api.getGapHexes(jobId);
-    },
+    queryFn: () => api.getGapHexes(jobId),
     enabled: isClient && !!jobId,
   });
 
@@ -98,14 +96,15 @@ export default function GapMapPage() {
       const dataUrl = mapRef.current?.getCanvasDataURL();
       if (!dataUrl) {
         alert("Unable to capture map screenshot.");
+        setIsExportingPNG(false);
         return;
       }
-      const a = document.createElement("a");
-      a.href = dataUrl;
-      a.download = `gapscout-map-${hexData?.category || "analysis"}-${jobId.slice(0, 8)}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const link = document.createElement("a");
+      link.download = `gapscout-${jobId}-map.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch {
+      alert("PNG export failed.");
     } finally {
       setIsExportingPNG(false);
     }
@@ -114,133 +113,112 @@ export default function GapMapPage() {
   // Export CSV
   const handleExportCSV = () => {
     if (hexes.length === 0) return;
-
     const headers = [
       "h3_index",
+      "resolution",
       "opportunity_score",
       "label",
       "supply_count",
       "density_per_km2",
       "avg_rating",
-      "avg_review_count",
       "demand_proxy",
-      "top_reasons",
     ];
-
     const rows = hexes.map((h) => [
       h.h3_index,
-      h.opportunity_score ?? "",
-      h.label ?? "",
+      h.resolution,
+      h.opportunity_score,
+      h.label,
       h.supply_count,
-      h.density_per_km2 ?? "",
-      h.avg_rating ?? "",
-      h.avg_review_count ?? "",
-      h.demand_proxy ?? "",
-      `"${(h.explanation?.top_reasons || []).join(" | ").replace(/"/g, '""')}"`,
+      h.density_per_km2,
+      h.avg_rating,
+      h.demand_proxy,
     ]);
-
-    const csvContent = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `gapscout-hexes-${hexData?.category || "analysis"}-${jobId.slice(0, 8)}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `gapscout-hexes-${hexData?.category || "analysis"}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  // Share link
+  // Share
   const handleShare = () => {
     if (typeof window !== "undefined") {
       navigator.clipboard.writeText(window.location.href);
     }
   };
 
-  if (isLoadingHexes) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex flex-col items-center justify-center p-6">
-        <Loader2 className="w-10 h-10 animate-spin text-indigo-400 mb-3" />
-        <p className="text-sm text-gray-400">Loading hexagonal gap map...</p>
-      </div>
-    );
-  }
-
-  if (isHexError || hexes.length === 0) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white p-6 sm:p-10 flex flex-col items-center justify-center text-center">
-        <div className="max-w-md p-8 rounded-2xl bg-gray-900 border border-gray-800 space-y-4">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 mx-auto flex items-center justify-center">
-            <Info className="w-6 h-6" />
+  return (
+    <div className="relative w-full h-[calc(100vh-3.5rem)] overflow-hidden bg-slate-950 flex flex-col">
+      {/* Top Banner & Mini-Nav */}
+      <div className="absolute top-4 left-4 z-20 flex items-center gap-3 pointer-events-auto">
+        <div className="glass-panel px-3.5 py-1.5 rounded-xl border border-slate-800 text-xs shadow-lg flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="font-bold text-white font-mono">Market Gap Intelligence</span>
           </div>
-          <h2 className="text-lg font-bold text-white">Gap analysis not ready</h2>
-          <p className="text-xs text-gray-400">
-            {hexError instanceof Error
-              ? hexError.message
-              : "No hex opportunity metrics found for this job yet. Check job progress."}
-          </p>
-          <div className="pt-2 flex justify-center gap-3">
+          <span className="text-slate-600">|</span>
+          <span className="font-semibold text-indigo-400 capitalize">
+            {hexData?.category || "Local"} Market Gap
+          </span>
+          <span className="px-2 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-300">
+            {hexes.length} Hexes
+          </span>
+        </div>
+      </div>
+
+      <div className="absolute top-4 right-4 z-20 flex items-center gap-2 pointer-events-auto">
+        <Link
+          href={`/jobs/${jobId}`}
+          className="glass-panel px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center gap-1.5 shadow-lg"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Job Details</span>
+        </Link>
+        <Link
+          href="/leads"
+          className="glass-panel px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/40 border border-indigo-500/30 transition-colors flex items-center gap-1.5 shadow-lg"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>View Leads</span>
+        </Link>
+      </div>
+
+      {/* Loading state */}
+      {isLoadingHexes && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+          <div className="glass-panel p-6 rounded-2xl flex flex-col items-center gap-3 text-slate-300 text-xs font-mono">
+            <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
+            <span>Rendering H3 hexagonal gap map...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Error state */}
+      {isHexError && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/80">
+          <div className="glass-panel p-6 rounded-2xl max-w-md text-center space-y-3">
+            <Layers className="w-8 h-8 text-rose-400 mx-auto" />
+            <p className="text-sm font-semibold text-white">Could not load gap analysis</p>
+            <p className="text-xs text-rose-300">
+              {hexError instanceof Error ? hexError.message : "Data unavailable"}
+            </p>
             <Link
               href={`/jobs/${jobId}`}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors"
+              className="inline-block px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition-colors"
             >
-              View Job Progress
-            </Link>
-            <Link
-              href="/dashboard"
-              className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-xs font-medium text-gray-300 transition-colors"
-            >
-              Back to Dashboard
+              Back to Job Detail
             </Link>
           </div>
         </div>
-      </div>
-    );
-  }
+      )}
 
-  return (
-    <div className="relative h-[calc(100vh-4rem)] w-full overflow-hidden bg-gray-950 flex flex-col">
-      {/* Top Banner Navigation */}
-      <div className="h-14 border-b border-gray-800 bg-gray-950/80 backdrop-blur-md px-6 flex items-center justify-between z-20 flex-shrink-0">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/dashboard"
-            className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-            title="Back to dashboard"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div className="flex items-center gap-2">
-            <Compass className="w-5 h-5 text-indigo-400" />
-            <span className="font-bold text-white capitalize text-sm">
-              {hexData?.category} Market Gap
-            </span>
-          </div>
-          <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Layers className="w-3 h-3" />
-            {hexes.length} Hexes (Res {hexData?.resolution || 8})
-          </span>
-          {summaryData && summaryData.underserved_count > 0 && (
-            <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <Sparkles className="w-3 h-3" />
-              {summaryData.underserved_count} Prime Gaps
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/jobs/${jobId}`}
-            className="text-xs text-gray-400 hover:text-white transition-colors"
-          >
-            Job Info
-          </Link>
-        </div>
-      </div>
-
-      {/* Main Map Canvas Area */}
-      <div className="relative flex-1 w-full h-full">
+      {/* Map Canvas */}
+      <div className="flex-1 w-full h-full relative">
         <GapMap
           ref={mapRef}
           hexes={hexes}
@@ -250,12 +228,15 @@ export default function GapMapPage() {
           showMarkers={showMarkers}
           selectedHex={selectedHex}
           onSelectHex={handleSelectHex}
+          basemapStyle={basemapStyle}
         />
 
-        {/* Floating Top Left: Top 3 & Saturated Cards */}
-        <GapSummaryCards summary={summaryData || null} onSelectHex={handleSelectHexByIndex} />
+        {/* Floating Top 3 / Saturated Cards */}
+        {summaryData && (
+          <GapSummaryCards summary={summaryData} onSelectHex={handleSelectHexByIndex} />
+        )}
 
-        {/* Floating Bottom Left: Controls, Metric Switch & Legend */}
+        {/* Floating Bottom Left Controls */}
         <MapControls
           activeMetric={activeMetric}
           onMetricChange={setActiveMetric}
@@ -267,10 +248,12 @@ export default function GapMapPage() {
           onExportCSV={handleExportCSV}
           onShare={handleShare}
           isExportingPNG={isExportingPNG}
+          basemapStyle={basemapStyle}
+          onBasemapStyleChange={setBasemapStyle}
         />
 
-        {/* Floating Right: Hex Detail Drawer */}
-        <HexDrawer hex={selectedHex} onClose={() => setSelectedHex(null)} />
+        {/* Slide-over Right Hex Drawer */}
+        {selectedHex && <HexDrawer hex={selectedHex} onClose={() => setSelectedHex(null)} />}
       </div>
     </div>
   );
